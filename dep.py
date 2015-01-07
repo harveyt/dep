@@ -97,14 +97,27 @@ class Config:
         except IOError, e:
             error("Cannot open {} for writing: {}'", self, e)
 
+    def __getitem__(self, key):
+        for s in self.sections:
+            if s.fullname == key:
+                return s
+        raise KeyError("Unknown section '{}' in {}".format(key, self))
+
 class ConfigSection:
     def __init__(self, config, name, subname=None):
         self.config = config
         self.name = name
-        self.subname = subname        
+        self.subname = subname
+        if subname:
+            self.fullname = "{}.{}".format(section.name, subname)
+        else:
+            self.fullname = name
         self.vars = []
         config.sections.append(self)
 
+    def __str__(self):
+        return self.fullname
+        
     @staticmethod
     def parse(config, line):
         if not config:
@@ -125,13 +138,16 @@ class ConfigSection:
         for v in self.vars:
             v.write(handle)
 
+    def __getitem__(self, key):
+        for s in self.vars:
+            if s.name == key:
+                return s
+        raise KeyError("Unknown variable '{}.{}' in {}".format(self.fullname, key, self.config))
+            
 class ConfigVar:
     def __init__(self, section, name, value):
         self.section = section
-        if section.subname:
-            self.fullname = "{}.{}.{}".format(section.name, section.subname, name)
-        else:
-            self.fullname = "{}.{}".format(section.name, name)            
+        self.fullname = "{}.{}".format(section.fullname, name)
         self.name = name
         self.value = value
         section.vars.append(self)
@@ -146,6 +162,9 @@ class ConfigVar:
         var = ConfigVar(section, m.group(1), m.group(2))
         return var
 
+    def __str__(self):
+        return self.value
+    
     def write(self, handle):
         # TODO: Handle escapes, quoting, whitespacing
         handle.write('\t{} = {}\n'.format(self.name, self.value))
@@ -163,11 +182,12 @@ def command_help(args):
 # Command: init
 #
 def command_init(args):
-    print "init", args    
+    # TODO: How to find root directory for this component?
     config = Config('.depconfig')
-    config.read()
-    config.path = '.depconfig-check'
+    core = ConfigSection(config, "core")
+    ConfigVar(core, "default-dep-dir", "dep")
     config.write()
+    print "Default dep dir:", config["core"]["default-dep-dir"]    
     
 # --------------------------------------------------------------------------------
 # Main
