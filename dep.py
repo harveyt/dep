@@ -52,8 +52,24 @@ def verbose(fmt, *a):
     sys.stderr.write(fmt.format(*a))
     sys.stderr.write("\n")
 
+def validate_file_exists(file):
+    if not os.path.isfile(file):
+        error("File '{}' does not exist", file)
+
+def validate_file_notexists(file):
+    if os.path.exists(file):
+        error("File '{}' already exists", file)
+
+def validate_dir_exists(dir):
+    if not os.path.isdir(dir):
+        error("Directory '{}' does not exist", dir)
+
+def validate_dir_notexists(dir):
+    if os.path.exists(dir):
+        error("Directory '{}' already exists", dir)
+    
 # --------------------------------------------------------------------------------
-# Classes
+# Configuration
 #
 class Config:
     def __init__(self, path):
@@ -152,6 +168,9 @@ class ConfigVar:
         self.value = value
         section.vars.append(self)
 
+    def __str__(self):
+        return self.value
+        
     @staticmethod
     def parse(section, line):
         if not section:
@@ -162,12 +181,29 @@ class ConfigVar:
         var = ConfigVar(section, m.group(1), m.group(2))
         return var
 
-    def __str__(self):
-        return self.value
-    
     def write(self, handle):
         # TODO: Handle escapes, quoting, whitespacing
         handle.write('\t{} = {}\n'.format(self.name, self.value))
+
+# --------------------------------------------------------------------------------
+# Component
+#
+class Component:
+    def __init__(self, name):
+        self.name = name
+        # TODO: Root directory determined how?
+        self.root_dir = os.getcwd()
+        self.config = Config(os.path.join(self.root_dir, ".depconfig"))
+
+    def __str__(self):
+        return "component '{}'".format(self.name)
+    
+    def init(self):
+        verbose("Initializing {}", self)
+        validate_file_notexists(self.config.path)
+        core = ConfigSection(self.config, "core")
+        ConfigVar(core, "default-dep-dir", "dep")
+        self.config.write()
 
 # --------------------------------------------------------------------------------
 # Command: help
@@ -182,12 +218,8 @@ def command_help(args):
 # Command: init
 #
 def command_init(args):
-    # TODO: How to find root directory for this component?
-    config = Config('.depconfig')
-    core = ConfigSection(config, "core")
-    ConfigVar(core, "default-dep-dir", "dep")
-    config.write()
-    print "Default dep dir:", config["core"]["default-dep-dir"]    
+    component = Component("test")
+    component.init()
     
 # --------------------------------------------------------------------------------
 # Main
