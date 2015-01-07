@@ -12,6 +12,7 @@ version = "%%VERSION%%"
 #
 import sys
 import os
+import re
 import argparse
 
 # --------------------------------------------------------------------------------
@@ -39,11 +40,115 @@ def debug(fmt, *a):
     sys.stderr.write(fmt.format(*a))
     sys.stderr.write("\n")
 
+def status(fmt, *a):
+    if args.quiet:
+        return
+    sys.stderr.write(fmt.format(*a))
+    sys.stderr.write("\n")
+
 def verbose(fmt, *a):
     if not args.verbose or args.quiet:
         return
     sys.stderr.write(fmt.format(*a))
     sys.stderr.write("\n")
+
+# --------------------------------------------------------------------------------
+# Classes
+#
+class Config:
+    def __init__(self, path):
+        self.path = path
+        self.sections = []
+
+    def __str__(self):
+        return "config file '{}'".format(self.path)
+
+    def read(self):
+        status("Reading {}", self)
+        try:
+            section = None
+            with open(self.path, 'r') as handle:
+                for lineno, line in enumerate(handle, start=1):
+                    line = line.rstrip('\r\n')
+                    # TODO: Handle comments
+                    # TODO: Handle escapes here? Would make parsing "\"" harder.
+                    # TODO: Handle line continuation
+                    if re.match(r"^\s*$", line):
+                        continue
+                    s = ConfigSection.parse(self, line)
+                    if s:
+                        section = s
+                        continue
+                    v = ConfigVar.parse(section, line)
+                    if v:
+                        continue
+                    error("{}, line {} cannot be parsed:\n>>> {}", self, lineno, line)
+        except IOError, e:
+            error("Cannot open {} for reading: {}'", self, e)
+
+    def write(self):
+        status("Writing {}", self)
+        if args.dry_run:
+            return
+        try:
+            with open(self.path, 'w') as handle:
+                for b in self.sections:
+                    b.write(handle)
+        except IOError, e:
+            error("Cannot open {} for writing: {}'", self, e)
+
+class ConfigSection:
+    def __init__(self, config, name, subname=None):
+        self.config = config
+        self.name = name
+        self.subname = subname        
+        self.vars = []
+        config.sections.append(self)
+
+    @staticmethod
+    def parse(config, line):
+        if not config:
+            return None
+        m = re.match(r'^\s*\[\s*([-a-zA-Z0-9]*)\s*("([^"]*)")?\s*\]\s*$', line)
+        if not m:
+            return None
+        section = ConfigSection(config, m.group(1), m.group(3))
+        return section
+
+    def write(self, handle):
+        if handle.tell() != 0:
+            handle.write('\n')
+        if self.subname:
+            handle.write('[{} "{}"]\n'.format(self.name, self.subname))
+        else:
+            handle.write('[{}]\n'.format(self.name))
+        for v in self.vars:
+            v.write(handle)
+
+class ConfigVar:
+    def __init__(self, section, name, value):
+        self.section = section
+        if section.subname:
+            self.fullname = "{}.{}.{}".format(section.name, section.subname, name)
+        else:
+            self.fullname = "{}.{}".format(section.name, name)            
+        self.name = name
+        self.value = value
+        section.vars.append(self)
+
+    @staticmethod
+    def parse(section, line):
+        if not section:
+            return None
+        m = re.match(r'^\s*([-a-zA-Z0-9]*)\s*=\s*(.*?)\s*$', line)
+        if not m:
+            return None
+        var = ConfigVar(section, m.group(1), m.group(2))
+        return var
+
+    def write(self, handle):
+        # TODO: Handle escapes, quoting, whitespacing
+        handle.write('\t{} = {}\n'.format(self.name, self.value))
 
 # --------------------------------------------------------------------------------
 # Command: help
@@ -59,6 +164,10 @@ def command_help(args):
 #
 def command_init(args):
     print "init", args    
+    config = Config('.depconfig')
+    config.read()
+    config.path = '.depconfig-check'
+    config.write()
     
 # --------------------------------------------------------------------------------
 # Main
