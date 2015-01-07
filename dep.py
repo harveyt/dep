@@ -77,7 +77,7 @@ class Config:
         self.sections = []
 
     def __str__(self):
-        return "config file '{}'".format(self.path)
+        return "Config '{}'".format(self.path)
 
     def read(self):
         status("Reading {}", self)
@@ -125,7 +125,7 @@ class ConfigSection:
         self.name = name
         self.subname = subname
         if subname:
-            self.fullname = "{}.{}".format(section.name, subname)
+            self.fullname = "{}.{}".format(name, subname)
         else:
             self.fullname = name
         self.vars = []
@@ -186,23 +186,74 @@ class ConfigVar:
         handle.write('\t{} = {}\n'.format(self.name, self.value))
 
 # --------------------------------------------------------------------------------
+# Repository
+#
+class Repository:
+    def __init__(self, local_dir, url, vcs):
+        self.local_dir = local_dir
+        self.url = url
+        self.vcs = vcs
+
+    def __str__(self):
+        return "{} '{}'".format(self.__class__.__name__, self.local_dir)
+
+    @staticmethod
+    def determine_vcs_from_url(url):
+        # TODO: Hard coded for now
+        return "git"
+    
+    @staticmethod
+    def create_from_url(url):
+        vcs = determine_vcs_from_url(url)
+        # TODO: Support more VCS
+        if vcs == "git":
+            return GitRepository(url)
+        else:        
+            error("Cannot determine VCS from repository URL '{}'", url)
+
+class GitRepository(Repository):
+    def __init__(self, url):
+        # TODO: Where is this really?
+        local_dir = os.getcwd()
+        Repository.__init__(self, local_dir, url, "git")
+    
+# --------------------------------------------------------------------------------
 # Component
 #
 class Component:
-    def __init__(self, name):
-        self.name = name
-        # TODO: Root directory determined how?
-        self.root_dir = os.getcwd()
-        self.config = Config(os.path.join(self.root_dir, ".depconfig"))
-
+    def __init__(self, parent=None):
+        # TODO: Get correct name from url
+        self.name = "test"
+        self.parent = parent
+        self.children = []
+        self.root = parent.root if parent else self
+        if parent:
+            parent.children.append(self)
+        # TODO: Get correct directory how?
+        self.config = Config(os.path.join(os.getcwd(), ".depconfig"))
+        self.repository = None
+        
     def __str__(self):
-        return "component '{}'".format(self.name)
+        return "Component '{}'".format(self.name)
     
     def init(self):
         verbose("Initializing {}", self)
         validate_file_notexists(self.config.path)
         core = ConfigSection(self.config, "core")
         ConfigVar(core, "default-dep-dir", "dep")
+        self.config.write()
+
+    def add_child(self, url):
+        self.config.read()
+        # TODO: Get correct values from url/repository.
+        name = "child"
+        path = "dep/child"
+        vcs = "git"
+        child = Component(self)
+        section = ConfigSection(self.config, "dep", name)
+        ConfigVar(section, "path", path)
+        ConfigVar(section, "url", url)
+        ConfigVar(section, "vcs", vcs)        
         self.config.write()
 
 # --------------------------------------------------------------------------------
@@ -218,9 +269,16 @@ def command_help(args):
 # Command: init
 #
 def command_init(args):
-    component = Component("test")
-    component.init()
-    
+    root = Component()
+    root.init()
+
+# --------------------------------------------------------------------------------
+# Command: add
+#
+def command_add(args):
+    root = Component()
+    root.add_child(args.url)
+
 # --------------------------------------------------------------------------------
 # Main
 #
@@ -249,6 +307,13 @@ parser_init = subparsers.add_parser("init",
                                     help="Initialise dependency system for this component",
                                     description="Initialise dependency system for this component.")
 parser_init.set_defaults(func=command_init)
+
+parser_add = subparsers.add_parser("add",
+                                   help="Add a new dependency to this component",
+                                   description="Add a new dependency to this component.")
+parser_add.add_argument("url",
+                        help="The URL of the dependant component's VCS repository")
+parser_add.set_defaults(func=command_add)
 
 if len(sys.argv) == 1:
     parser.print_help()
