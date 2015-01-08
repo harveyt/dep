@@ -265,13 +265,22 @@ class Repository:
     def determine_vcs_from_url(url):
         # TODO: Hard coded for now
         return "git"
+
+    @staticmethod
+    def determine_name_from_url(url):
+        # TODO: Hard coded for now        
+        name = os.path.basename(url)
+        name = re.sub(r"\.git$", "", name)        
+        return name
     
     @staticmethod
-    def create_from_url(url):
+    def create_from_url(work_dir, url):
+        if not url:
+            return FileRepository(work_dir)
         vcs = Repository.determine_vcs_from_url(url)
         # TODO: Support more VCS
         if vcs == "git":
-            return GitRepository(url)
+            return GitRepository(work_dir, url)
         else:        
             error("Cannot determine VCS from repository URL '{}'", url)
 
@@ -286,15 +295,9 @@ class Repository:
 
 class FileRepository(Repository):
     def __init__(self, work_dir):
-        name = FileRepository.determine_name_from_path(work_dir)
-        # TODO: Is this correct?
         url = "file://{}".format(work_dir)
+        name = Repository.determine_name_from_url(work_dir)
         Repository.__init__(self, work_dir, url, "file", name)
-
-    @staticmethod
-    def determine_name_from_path(path):
-        name = os.path.basename(path)
-        return name
 
     def register(self, path):
         pass
@@ -312,24 +315,12 @@ class FileRepository(Repository):
         pass
 
 class GitRepository(Repository):
-    def __init__(self, url):
-        # TODO: What is work_dir really?
-        work_dir = os.getcwd()
-        # TODO: Better way to find name of repository?
-        name = GitRepository.determine_name_from_url(url)
+    def __init__(self, work_dir, url):
+        name = Repository.determine_name_from_url(url)
         Repository.__init__(self, work_dir, url, "git", name)
         # TODO: Better way to find this?
         self.git_dir = os.path.join(work_dir, ".git")
         self.quiet_flag = "--quiet" if args.quiet else None
-
-    @staticmethod
-    def determine_name_from_url(url):
-        m = re.search(r"([^/]*)/*$", url)
-        if m:
-            name = m.group(1)
-            name = re.sub(r"\.git$", "", name)
-            return name
-        return None
 
     def register(self, path):
         run("git", "add", path, cwd=self.work_dir)
@@ -347,30 +338,29 @@ class GitRepository(Repository):
         validate_dir_notexists(self.work_dir)
         validate_dir_notexists(self.git_dir)
         status("Downloading {} from '{}'", self, self.url)
-        make_dirs(self.work_dir)
-        run("git", "clone", quiet_flag, self.url, ".", cwd-self.work_dir)
+        run("git", "clone", self.quiet_flag, self.url, self.work_dir)
         
 # --------------------------------------------------------------------------------
 # Component
 #
 class Component:
     def __init__(self, parent=None, url=None):
+        # TODO: Override by default
+        if url:
+            self.name = Repository.determine_name_from_url(url)
+        else:
+            self.name = Repository.determine_name_from_url(os.getcwd())
+        # TODO: Override by default
+        dep_dir = parent.config["core"]["default-dep-dir"] if parent else "dep"
+        self.relpath = os.path.join(dep_dir, self.name)
+        self.work_dir = os.path.join(parent.work_dir, self.relpath) if parent else os.getcwd()
         self.parent = parent
         self.children = []
         self.root = parent.root if parent else self
         if parent:
             parent.children.append(self)
-        # TODO: Get correct config location/directory how?
-        work_dir = os.getcwd()
-        self.config = Config(os.path.join(work_dir, ".depconfig"))
-        if url:
-            self.repository = Repository.create_from_url(url)
-        else:
-            self.repository = FileRepository(work_dir)
-        self.name = self.repository.name
-        # TODO: Override by default?
-        dep_dir = parent.config["core"]["default-dep-dir"] if parent else "dep"
-        self.relpath = os.path.join(dep_dir, self.name)
+        self.config = Config(os.path.join(self.work_dir, ".depconfig"))
+        self.repository = Repository.create_from_url(self.work_dir, url)
         
     def __str__(self):
         return "Component '{}'".format(self.name)
@@ -406,7 +396,9 @@ class Component:
         debug("{}--- {} ---", prefix, self)
         debug("{}name = {}", prefix, self.name)
         debug("{}relpath = {}", prefix, self.relpath)
-        debug("{}parent = {}", prefix, self.parent)
+        debug("{}work_dir = {}", prefix, self.work_dir)        
+        debug("{}parent = {}", prefix, str(self.parent))
+        debug("{}root = {}", prefix, str(self.root))
         self.config.debug_dump(prefix)
         self.repository.debug_dump(prefix)
         debug("{}children[] = {{", prefix)

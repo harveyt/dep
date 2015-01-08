@@ -3,7 +3,8 @@
 TESTS=$PWD
 ROOT=$PWD/..
 DEP="$ROOT/dep.py -v"
-TMPDIR=$TESTS/tmp
+TMP_DIR=$TESTS/tmp
+TMP_REPOS=$TMP_DIR/repos
 
 test_title()
 {
@@ -62,7 +63,7 @@ test_file_contains()
 
 test_repo_path()
 {
-    echo "$TMPDIR/$1"
+    echo "$TMP_REPOS/$1"
 }
 
 test_repo_url()
@@ -95,8 +96,9 @@ test_create_repo()
 }
 
 # All tests run in temporary directory
-if [[ -d $TMPDIR ]]; then
-    rm -rf $TMPDIR
+if [[ -d $TMP_DIR ]]; then
+    rm -rf $TMP_DIR
 fi
-mkdir -p $TMPDIR
-cd $TMPDIR
+mkdir -p $TMP_DIR
+mkdir -p $TMP_REPOS
+cd $TMP_DIR
