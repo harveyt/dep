@@ -14,6 +14,7 @@ import sys
 import os
 import re
 import argparse
+import subprocess
 
 # --------------------------------------------------------------------------------
 # Helper Functions
@@ -67,7 +68,39 @@ def validate_dir_exists(dir):
 def validate_dir_notexists(dir):
     if os.path.exists(dir):
         error("Directory '{}' already exists", dir)
-    
+
+def run(*cmd, **kw):
+    status = 0
+    cmd = filter(None, cmd)
+    cmd_text = ' '.join(cmd)
+    cwd = kw.get('cwd')
+    query = kw.get('query')
+    if not query:
+        if cwd:
+            verbose("-> pushd {}", cwd)
+        verbose("-> {}", cmd_text)
+        if cwd:
+            verbose("-> popd")
+    if args.dry_run and not query:
+        return
+    try:
+        if query:
+            return subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        elif args.quiet:
+            with open(os.devnull, "wb") as dev_null:
+                status = subprocess.call(cmd, stdout=dev_null)
+        else:
+            status = subprocess.call(cmd)
+        if status != 0:
+            error("Execution of '{}' returned exit status {}", cmd_text, status)
+    except OSError, e:
+        error("Cannot execute '{}': {}'", cmd_text, e)
+    except Exception, e:
+        error("{}", e)
+
+def run_query(*cmd, **kw):
+    return run(*cmd, query=True, **kw)
+        
 # --------------------------------------------------------------------------------
 # Configuration
 #
