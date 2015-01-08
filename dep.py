@@ -152,6 +152,11 @@ class Config:
                 return s
         raise KeyError("Unknown section '{}' in {}".format(key, self))
 
+    def debug_dump(self, prefix=""):
+        debug("{}--- {} ---", prefix, self)
+        for s in self.sections:
+            s.debug_dump(prefix)
+    
 class ConfigSection:
     def __init__(self, config, name, subname=None):
         self.config = config
@@ -192,7 +197,12 @@ class ConfigSection:
             if v.name == key:
                 return v.value
         raise KeyError("Unknown variable '{}.{}' in {}".format(self.fullname, key, self.config))
-            
+
+    def debug_dump(self, prefix=""):
+        prefix = "{}{}.".format(prefix, self.fullname)
+        for v in self.vars:
+            v.debug_dump(prefix)
+    
 class ConfigVar:
     def __init__(self, section, name, value):
         self.section = section
@@ -218,6 +228,9 @@ class ConfigVar:
         # TODO: Handle escapes, quoting, whitespacing
         handle.write('\t{} = {}\n'.format(self.name, self.value))
 
+    def debug_dump(self, prefix=""):
+        debug("{}{} = {}", prefix, self.name, self.value)
+        
 # --------------------------------------------------------------------------------
 # Repository
 #
@@ -248,6 +261,13 @@ class Repository:
             return GitRepository(url)
         else:        
             error("Cannot determine VCS from repository URL '{}'", url)
+
+    def debug_dump(self, prefix=""):
+        debug("{}--- {} ---", prefix, self)
+        debug("{}local_dir = {}", prefix, self.local_dir)
+        debug("{}url = {}", prefix, self.url)
+        debug("{}vcs = {}", prefix, self.vcs)
+        debug("{}name = {}", prefix, self.name)        
 
 class FileRepository(Repository):
     def __init__(self, local_dir):
@@ -309,6 +329,7 @@ class Component:
         core = ConfigSection(self.config, "core")
         ConfigVar(core, "default-dep-dir", "dep")
         self.config.write()
+        self.debug_dump("post: ")
 
     def add_to_config(self, config):
         section = ConfigSection(config, "dep", self.name)
@@ -317,9 +338,25 @@ class Component:
 
     def add_child(self, url):
         self.config.read()
+        self.debug_dump("pre: ")
         child = Component(self, url)
         child.add_to_config(self.config)
         self.config.write()
+        self.debug_dump("post: ")        
+
+    def debug_dump(self, prefix=""):
+        debug("{}--- {} ---", prefix, self)
+        debug("{}name = {}", prefix, self.name)
+        debug("{}path = {}", prefix, self.path)
+        debug("{}parent = {}", prefix, self.parent)
+        self.config.debug_dump(prefix)
+        self.repository.debug_dump(prefix)
+        debug("{}children[] = {{", prefix)
+        for i, c in enumerate(self.children):
+            if i > 0:
+                debug("{},".format(prefix))
+            c.debug_dump("{}[{}] ".format(prefix, i))
+        debug("{}}}", prefix)            
 
 # --------------------------------------------------------------------------------
 # Command: help
