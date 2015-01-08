@@ -1,6 +1,9 @@
 #!/bin/bash
 
-DEP="../dep.py -v"
+TESTS=$PWD
+ROOT=$PWD/..
+DEP="$ROOT/dep.py -v"
+TMPDIR=$TESTS/tmp
 
 test_title()
 {
@@ -45,9 +48,10 @@ test_file_contains()
 {
     local file="$1"
     local expected="$2"
-    local expected_file=".expected-$file"    
+    local expected_file="expected-$file"
     test_file_exists "$file"
     test_echo "Test file \"$file\" contains expected result"
+    rm -f "$expected_file"
     echo -n -e "$expected" > "$expected_file"
     diff -c "$expected_file" "$file"
     status=$?
@@ -55,3 +59,44 @@ test_file_contains()
 	test_fail "file \"$file\" does not contain expected result"
     fi
 }
+
+test_repo_path()
+{
+    echo "$TMPDIR/$1"
+}
+
+test_repo_url()
+{
+    local path=$(test_repo_path "$1")
+    echo "file:///$path"
+}
+
+test_repo_git_dir()
+{
+    local path=$(test_repo_path "$1")
+    echo "$path.git"
+}
+
+test_create_repo()
+{
+    local name="$1"
+    test_echo "Create repository $name"
+    local path=$(test_repo_path $name)
+    local git_dir=$(test_repo_git_dir $name)
+    local url=$(test_repo_url $name)
+    test_exec git init --bare "$git_dir"
+    test_exec git clone "$url" "$path"
+    cd "$path"
+    test_exec touch "FILE-$name"
+    test_exec git add "FILE-$name"
+    test_exec git commit -m "Initial commit on $name"
+    test_exec git push
+    cd -
+}
+
+# All tests run in temporary directory
+if [[ -d $TMPDIR ]]; then
+    rm -rf $TMPDIR
+fi
+mkdir -p $TMPDIR
+cd $TMPDIR
