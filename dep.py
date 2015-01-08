@@ -189,14 +189,19 @@ class ConfigVar:
 # Repository
 #
 class Repository:
-    def __init__(self, local_dir, url, vcs):
+    def __init__(self, local_dir, url, vcs, name):
         self.local_dir = local_dir
         self.url = url
         self.vcs = vcs
+        self.name = name
 
     def __str__(self):
         return "{} '{}'".format(self.__class__.__name__, self.local_dir)
 
+    def add_to_config_section(self, section):
+        ConfigVar(section, "url", self.url)
+        ConfigVar(section, "vcs", self.vcs)
+        
     @staticmethod
     def determine_vcs_from_url(url):
         # TODO: Hard coded for now
@@ -204,7 +209,7 @@ class Repository:
     
     @staticmethod
     def create_from_url(url):
-        vcs = determine_vcs_from_url(url)
+        vcs = Repository.determine_vcs_from_url(url)
         # TODO: Support more VCS
         if vcs == "git":
             return GitRepository(url)
@@ -213,25 +218,45 @@ class Repository:
 
 class GitRepository(Repository):
     def __init__(self, url):
-        # TODO: Where is this really?
+        # TODO: What is local_dir really?
         local_dir = os.getcwd()
-        Repository.__init__(self, local_dir, url, "git")
+        # TODO: Better way to find name of repository?
+        name = GitRepository.determine_name_from_url(url)
+        Repository.__init__(self, local_dir, url, "git", name)
+
+    @staticmethod
+    def determine_name_from_url(url):
+        m = re.search(r"([^/]*)/*$", url)
+        if m:
+            name = m.group(1)
+            name = re.sub(r"\.git$", "", name)
+            return name
+        return None
     
 # --------------------------------------------------------------------------------
 # Component
 #
 class Component:
-    def __init__(self, parent=None):
-        # TODO: Get correct name from url
-        self.name = "test"
+    def __init__(self, parent=None, url=None):
+        # TODO: Get correct name from where?
+        self.name = "root"
+        # TODO: Get correct path from where?        
+        self.path = "."
         self.parent = parent
         self.children = []
         self.root = parent.root if parent else self
         if parent:
             parent.children.append(self)
-        # TODO: Get correct directory how?
+        # TODO: Get correct config location/directory how?
         self.config = Config(os.path.join(os.getcwd(), ".depconfig"))
-        self.repository = None
+        if url:
+            self.repository = Repository.create_from_url(url)
+            self.name = self.repository.name
+            # TODO: Override by default?
+            dep_dir = str(parent.config["core"]["default-dep-dir"]) if parent else "dep"
+            self.path = os.path.join(dep_dir, self.name)
+        else:
+            self.repository = None
         
     def __str__(self):
         return "Component '{}'".format(self.name)
@@ -243,17 +268,15 @@ class Component:
         ConfigVar(core, "default-dep-dir", "dep")
         self.config.write()
 
+    def add_to_config(self, config):
+        section = ConfigSection(config, "dep", self.name)
+        ConfigVar(section, "path", self.path)
+        self.repository.add_to_config_section(section)
+
     def add_child(self, url):
         self.config.read()
-        # TODO: Get correct values from url/repository.
-        name = "child"
-        path = "dep/child"
-        vcs = "git"
-        child = Component(self)
-        section = ConfigSection(self.config, "dep", name)
-        ConfigVar(section, "path", path)
-        ConfigVar(section, "url", url)
-        ConfigVar(section, "vcs", vcs)        
+        child = Component(self, url)
+        child.add_to_config(self.config)
         self.config.write()
 
 # --------------------------------------------------------------------------------
