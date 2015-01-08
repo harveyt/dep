@@ -237,14 +237,14 @@ class ConfigVar:
 # Repository
 #
 class Repository:
-    def __init__(self, local_dir, url, vcs, name):
-        self.local_dir = local_dir
+    def __init__(self, work_dir, url, vcs, name):
+        self.work_dir = work_dir
         self.url = url
         self.vcs = vcs
         self.name = name
 
     def __str__(self):
-        return "{} '{}'".format(self.__class__.__name__, self.local_dir)
+        return "{} '{}'".format(self.__class__.__name__, self.work_dir)
 
     def add_to_config_section(self, section):
         ConfigVar(section, "url", self.url)
@@ -268,30 +268,42 @@ class Repository:
         if not args.debug or args.quiet:
             return
         debug("{}--- {} ---", prefix, self)
-        debug("{}local_dir = {}", prefix, self.local_dir)
+        debug("{}work_dir = {}", prefix, self.work_dir)
         debug("{}url = {}", prefix, self.url)
         debug("{}vcs = {}", prefix, self.vcs)
         debug("{}name = {}", prefix, self.name)        
 
 class FileRepository(Repository):
-    def __init__(self, local_dir):
-        name = FileRepository.determine_name_from_path(local_dir)
+    def __init__(self, work_dir):
+        name = FileRepository.determine_name_from_path(work_dir)
         # TODO: Is this correct?
-        url = "file://{}".format(local_dir)
-        Repository.__init__(self, local_dir, url, "file", name)
+        url = "file://{}".format(work_dir)
+        Repository.__init__(self, work_dir, url, "file", name)
 
     @staticmethod
     def determine_name_from_path(path):
         name = os.path.basename(path)
         return name
-    
+
+    def register(self, path):
+        pass
+
+    def unregister(self, path):
+        pass
+
+    def pre_edit(self, path):
+        pass
+
+    def post_edit(self, path):
+        pass
+
 class GitRepository(Repository):
     def __init__(self, url):
-        # TODO: What is local_dir really?
-        local_dir = os.getcwd()
+        # TODO: What is work_dir really?
+        work_dir = os.getcwd()
         # TODO: Better way to find name of repository?
         name = GitRepository.determine_name_from_url(url)
-        Repository.__init__(self, local_dir, url, "git", name)
+        Repository.__init__(self, work_dir, url, "git", name)
 
     @staticmethod
     def determine_name_from_url(url):
@@ -301,7 +313,19 @@ class GitRepository(Repository):
             name = re.sub(r"\.git$", "", name)
             return name
         return None
-    
+
+    def register(self, path):
+        run("git", "add", path, cwd=self.work_dir)
+
+    def unregister(self, path):
+        run("git", "rm", "--cached", path, cwd=self.work_dir)
+
+    def pre_edit(self, path):
+        pass
+
+    def post_edit(self, path):
+        run("git", "add", path, cwd=self.work_dir)
+        
 # --------------------------------------------------------------------------------
 # Component
 #
@@ -313,16 +337,16 @@ class Component:
         if parent:
             parent.children.append(self)
         # TODO: Get correct config location/directory how?
-        local_dir = os.getcwd()
-        self.config = Config(os.path.join(local_dir, ".depconfig"))
+        work_dir = os.getcwd()
+        self.config = Config(os.path.join(work_dir, ".depconfig"))
         if url:
             self.repository = Repository.create_from_url(url)
         else:
-            self.repository = FileRepository(local_dir)
+            self.repository = FileRepository(work_dir)
         self.name = self.repository.name
         # TODO: Override by default?
         dep_dir = parent.config["core"]["default-dep-dir"] if parent else "dep"
-        self.path = os.path.join(dep_dir, self.name)
+        self.relpath = os.path.join(dep_dir, self.name)
         
     def __str__(self):
         return "Component '{}'".format(self.name)
@@ -333,11 +357,12 @@ class Component:
         core = ConfigSection(self.config, "core")
         ConfigVar(core, "default-dep-dir", "dep")
         self.config.write()
+        self.repository.register(self.config.path)
         self.debug_dump("post: ")
 
     def add_to_config(self, config):
         section = ConfigSection(config, "dep", self.name)
-        ConfigVar(section, "path", self.path)
+        ConfigVar(section, "relpath", self.relpath)
         self.repository.add_to_config_section(section)
 
     def add_child(self, url):
@@ -345,15 +370,17 @@ class Component:
         self.debug_dump("pre: ")
         child = Component(self, url)
         child.add_to_config(self.config)
+        self.repository.pre_edit(self.config.path)
         self.config.write()
-        self.debug_dump("post: ")        
+        self.repository.post_edit(self.config.path)        
+        self.debug_dump("post: ")
 
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
             return
         debug("{}--- {} ---", prefix, self)
         debug("{}name = {}", prefix, self.name)
-        debug("{}path = {}", prefix, self.path)
+        debug("{}relpath = {}", prefix, self.relpath)
         debug("{}parent = {}", prefix, self.parent)
         self.config.debug_dump(prefix)
         self.repository.debug_dump(prefix)
