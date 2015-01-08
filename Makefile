@@ -18,3 +18,6 @@ install:
 	{ sub(/%%VERSION%%/, "$(VERSION)", $$0); print $$0; }' \
 		$(NAME).py > $(BINDIR)/$(NAME)
 	chmod a+rx $(BINDIR)/$(NAME)
+
+test:
+	$(MAKE) -C tests -w test

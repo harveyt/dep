@@ -1,0 +1,10 @@
+#!/bin/bash
+. helpers
+test_title
+rm -f .depconfig
+test_exec $DEP init
+test_file_contains .depconfig "[core]\n\tdefault-dep-dir = dep\n"
+test_exec $DEP add git@github.com:test/thing.git
+test_file_contains .depconfig "[core]\n\tdefault-dep-dir = dep\n\n[dep \"thing\"]\n\turl = git@github.com:test/thing.git\n\tvcs = git\n"
+
+

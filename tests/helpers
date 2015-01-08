@@ -1,0 +1,57 @@
+#!/bin/bash
+
+DEP="../dep.py -v"
+
+test_title()
+{
+    echo
+    echo "================================================================================"    
+    echo "Running test \"$0\""
+    echo "================================================================================"
+    echo
+}
+
+test_echo()
+{
+    echo "### $@"
+}
+
+test_fail()
+{
+    test_echo "TEST FAIL: $@"
+    exit 1
+}
+
+test_exec()
+{
+    test_echo "Test execute \"$@\""
+    "$@"    
+    status=$?
+    if [[ $status -ne 0 ]]; then
+	test_fail "FAIL: returned non-zero status $status"
+    fi
+}
+
+test_file_exists()
+{
+    local file="$1"    
+    test_echo "Test file exists \"$file\""
+    if [[ ! -f "$file" ]]; then
+	test_fail "FAIL: file \"$file\" does not exist"
+    fi
+}
+
+test_file_contains()
+{
+    local file="$1"
+    local expected="$2"
+    local expected_file=".expected-$file"    
+    test_file_exists "$file"
+    test_echo "Test file \"$file\" contains expected result"
+    echo -n -e "$expected" > "$expected_file"
+    diff -c "$expected_file" "$file"
+    status=$?
+    if [[ $status -ne 0 ]]; then
+	test_fail "file \"$file\" does not contain expected result"
+    fi
+}
