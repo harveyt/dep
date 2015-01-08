@@ -100,7 +100,18 @@ def run(*cmd, **kw):
 
 def run_query(*cmd, **kw):
     return run(*cmd, query=True, **kw)
-        
+
+def make_dirs(dir):
+    if os.path.isdir(dir):
+        return
+    verbose("-> mkdir -p {}", dir)
+    if args.dry_run:
+        return
+    try:
+        os.makedirs(dir)
+    except OSError, e:
+        error("Cannot make directory path '{}'", dir)
+
 # --------------------------------------------------------------------------------
 # Configuration
 #
@@ -297,6 +308,9 @@ class FileRepository(Repository):
     def post_edit(self, path):
         pass
 
+    def download(self):
+        pass
+
 class GitRepository(Repository):
     def __init__(self, url):
         # TODO: What is work_dir really?
@@ -304,6 +318,9 @@ class GitRepository(Repository):
         # TODO: Better way to find name of repository?
         name = GitRepository.determine_name_from_url(url)
         Repository.__init__(self, work_dir, url, "git", name)
+        # TODO: Better way to find this?
+        self.git_dir = os.path.join(work_dir, ".git")
+        self.quiet_flag = "--quiet" if args.quiet else None
 
     @staticmethod
     def determine_name_from_url(url):
@@ -325,6 +342,13 @@ class GitRepository(Repository):
 
     def post_edit(self, path):
         run("git", "add", path, cwd=self.work_dir)
+
+    def download(self):
+        validate_dir_notexists(self.work_dir)
+        validate_dir_notexists(self.git_dir)
+        status("Downloading {} from '{}'", self, self.url)
+        make_dirs(self.work_dir)
+        run("git", "clone", quiet_flag, self.url, ".", cwd-self.work_dir)
         
 # --------------------------------------------------------------------------------
 # Component
@@ -372,7 +396,8 @@ class Component:
         child.add_to_config(self.config)
         self.repository.pre_edit(self.config.path)
         self.config.write()
-        self.repository.post_edit(self.config.path)        
+        self.repository.post_edit(self.config.path)
+        child.repository.download()
         self.debug_dump("post: ")
 
     def debug_dump(self, prefix=""):
