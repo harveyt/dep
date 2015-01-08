@@ -155,9 +155,9 @@ class ConfigSection:
             v.write(handle)
 
     def __getitem__(self, key):
-        for s in self.vars:
-            if s.name == key:
-                return s
+        for v in self.vars:
+            if v.name == key:
+                return v.value
         raise KeyError("Unknown variable '{}.{}' in {}".format(self.fullname, key, self.config))
             
 class ConfigVar:
@@ -216,6 +216,18 @@ class Repository:
         else:        
             error("Cannot determine VCS from repository URL '{}'", url)
 
+class FileRepository(Repository):
+    def __init__(self, local_dir):
+        name = FileRepository.determine_name_from_path(local_dir)
+        # TODO: Is this correct?
+        url = "file://{}".format(local_dir)
+        Repository.__init__(self, local_dir, url, "file", name)
+
+    @staticmethod
+    def determine_name_from_path(path):
+        name = os.path.basename(path)
+        return name
+    
 class GitRepository(Repository):
     def __init__(self, url):
         # TODO: What is local_dir really?
@@ -238,25 +250,22 @@ class GitRepository(Repository):
 #
 class Component:
     def __init__(self, parent=None, url=None):
-        # TODO: Get correct name from where?
-        self.name = "root"
-        # TODO: Get correct path from where?        
-        self.path = "."
         self.parent = parent
         self.children = []
         self.root = parent.root if parent else self
         if parent:
             parent.children.append(self)
         # TODO: Get correct config location/directory how?
-        self.config = Config(os.path.join(os.getcwd(), ".depconfig"))
+        local_dir = os.getcwd()
+        self.config = Config(os.path.join(local_dir, ".depconfig"))
         if url:
             self.repository = Repository.create_from_url(url)
-            self.name = self.repository.name
-            # TODO: Override by default?
-            dep_dir = str(parent.config["core"]["default-dep-dir"]) if parent else "dep"
-            self.path = os.path.join(dep_dir, self.name)
         else:
-            self.repository = None
+            self.repository = FileRepository(local_dir)
+        self.name = self.repository.name
+        # TODO: Override by default?
+        dep_dir = parent.config["core"]["default-dep-dir"] if parent else "dep"
+        self.path = os.path.join(dep_dir, self.name)
         
     def __str__(self):
         return "Component '{}'".format(self.name)
