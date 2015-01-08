@@ -153,6 +153,8 @@ class Config:
         raise KeyError("Unknown section '{}' in {}".format(key, self))
 
     def debug_dump(self, prefix=""):
+        if not args.debug or args.quiet:
+            return
         debug("{}--- {} ---", prefix, self)
         for s in self.sections:
             s.debug_dump(prefix)
@@ -263,6 +265,8 @@ class Repository:
             error("Cannot determine VCS from repository URL '{}'", url)
 
     def debug_dump(self, prefix=""):
+        if not args.debug or args.quiet:
+            return
         debug("{}--- {} ---", prefix, self)
         debug("{}local_dir = {}", prefix, self.local_dir)
         debug("{}url = {}", prefix, self.url)
@@ -345,6 +349,8 @@ class Component:
         self.debug_dump("post: ")        
 
     def debug_dump(self, prefix=""):
+        if not args.debug or args.quiet:
+            return
         debug("{}--- {} ---", prefix, self)
         debug("{}name = {}", prefix, self.name)
         debug("{}path = {}", prefix, self.path)
