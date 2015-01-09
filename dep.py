@@ -314,12 +314,22 @@ class FileRepository(Repository):
     def download(self):
         pass
 
+    def has_ignore(self, path):
+        return False
+
+    def add_ignore(self, path):
+        pass
+
+    def remove_ignore(self, path):
+        pass
+
 class GitRepository(Repository):
     def __init__(self, work_dir, url):
         name = Repository.determine_name_from_url(url)
         Repository.__init__(self, work_dir, url, "git", name)
         # TODO: Better way to find this?
         self.git_dir = os.path.join(work_dir, ".git")
+        self.ignore_file = os.path.join(work_dir, ".gitignore")
         self.quiet_flag = "--quiet" if args.quiet else None
 
     def register(self, path):
@@ -339,7 +349,57 @@ class GitRepository(Repository):
         validate_dir_notexists(self.git_dir)
         status("Downloading {} from '{}'", self, self.url)
         run("git", "clone", self.quiet_flag, self.url, self.work_dir)
-        
+
+    def read_ignore(self):
+        if not os.path.exists(self.ignore_file):
+            return []
+        try:
+            ignores = []
+            with open(self.ignore_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    ignores.append(line)
+            return ignores
+        except IOError, e:
+            error("Cannot open '{}' for reading: {}'", self.ignore_file, e)
+
+    def has_ignore(self, path):
+        ignores = self.read_ignore()
+        return path in ignores
+
+    def add_ignore(self, path):
+        verbose("Adding '{}' to ignore file '{}'", path, self.ignore_file)
+        if args.dry_run:
+            return
+        if not os.path.exists(self.ignore_file):
+            self.register(self.ignore_file)
+        self.pre_edit(self.ignore_file)
+        try:
+            with open(self.ignore_file, 'a') as f:
+                f.write('{}\n'.format(path))
+        except IOError, e:
+            error("Cannot open '{}' for writing: {}'", self.ignore_file, e)
+        self.post_edit(self.ignore_file)            
+
+    def remove_ignore(self, path):
+        verbose("Remove '{}' from ignore file '{}'", path, self.ignore_file)
+        if args.dry_run:
+            return
+        if not os.path.exists(self.ignore_file):
+            # TODO: There is no ignore file, so cannot remove?
+            return
+        ignores = self.read_ignore()
+        self.pre_edit(self.ignore_file)        
+        try:
+            with open(self.ignore_file, 'w') as f:
+                for ignore in ignores:
+                    if ignore != path:
+                        f.write('{}\n'.format(ignore))
+        except IOError, e:
+            error("Cannot open '{}' for writing: {}'", self.ignore_file, e)
+        self.post_edit(self.ignore_file)
+        # TODO: Remove if ignore file is now empty?
+    
 # --------------------------------------------------------------------------------
 # Component
 #
@@ -380,6 +440,7 @@ class Component:
         self.repository.add_to_config_section(section)
 
     def add_child(self, url):
+        # TODO: Ensure initialized?
         self.config.read()
         self.debug_dump("pre: ")
         child = Component(self, url)
@@ -388,6 +449,7 @@ class Component:
         self.config.write()
         self.repository.post_edit(self.config.path)
         child.repository.download()
+        self.repository.add_ignore(child.relpath)
         self.debug_dump("post: ")
 
     def debug_dump(self, prefix=""):
