@@ -3,14 +3,15 @@
 TESTS=$PWD
 ROOT=$PWD/..
 DEP="$ROOT/dep.py -v"
-TMP_DIR=$TESTS/tmp
+TEST_NAME="$(basename $0)"
+TMP_DIR=$TESTS/tmp/$TEST_NAME
 TMP_REPOS=$TMP_DIR/repos
 
 test_title()
 {
     echo
     echo "================================================================================"    
-    echo "Running test \"$0\""
+    echo "Running test \"$TEST_NAME\""
     echo "================================================================================"
     echo
 }
@@ -49,15 +50,21 @@ test_file_contains()
 {
     local file="$1"
     local expected="$2"
-    local expected_file="expected-$file"
     test_file_exists "$file"
     test_echo "Test file \"$file\" contains expected result"
-    rm -f "$expected_file"
-    echo -n -e "$expected" > "$expected_file"
-    diff -c "$expected_file" "$file"
+    echo -n -e "$expected" | diff -c - "$file"
     status=$?
     if [[ $status -ne 0 ]]; then
 	test_fail "file \"$file\" does not contain expected result"
+    fi
+}
+
+test_dir_exists()
+{
+    local dir="$1"    
+    test_echo "Test dir exists \"$dir\""
+    if [[ ! -d "$dir" ]]; then
+	test_fail "dir \"$dir\" does not exist"
     fi
 }
 
@@ -78,7 +85,7 @@ test_repo_git_dir()
     echo "$path.git"
 }
 
-test_create_repo()
+test_git_create_repo()
 {
     local name="$1"
     test_echo "Create repository $name"
@@ -94,6 +101,19 @@ test_create_repo()
     test_exec git push
     cd -
 }
+
+test_git_status_equals()
+{
+    local expected="$1"
+    test_echo "Test git status matches expected result"
+    echo -n -e "$expected" | diff -c - <(git status -sb | sed -e '/^#/d')
+    status=$?
+    if [[ $status -ne 0 ]]; then
+	test_fail "git status does not match expected result"
+    fi
+}   
+
+test_title
 
 # All tests run in temporary directory
 if [[ -d $TMP_DIR ]]; then

@@ -1,12 +1,10 @@
 #!/bin/bash
 . helpers
-test_title
-rm -f .depconfig
 test_exec $DEP init
 test_file_contains .depconfig "[core]
 	default-dep-dir = dep
 "
-test_create_repo TOP
+test_git_create_repo TOP
 url=$(test_repo_url TOP)
 test_exec $DEP add "$url"
 test_file_contains .depconfig "[core]
