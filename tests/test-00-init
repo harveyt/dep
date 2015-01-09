@@ -3,4 +3,6 @@
 test_title
 rm -f .depconfig
 test_exec $DEP init
-test_file_contains .depconfig "[core]\n\tdefault-dep-dir = dep\n"
+test_file_contains .depconfig "[core]
+	default-dep-dir = dep
+"
