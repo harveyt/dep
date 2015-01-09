@@ -23,7 +23,9 @@ test_echo()
 
 test_fail()
 {
-    test_echo "TEST FAIL: $@"
+    local file="$TEST_NAME"
+    local line="${BASH_LINENO[1]}"
+    echo "$file:$line: TEST FAIL: $@"
     exit 1
 }
 
