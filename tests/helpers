@@ -40,6 +40,16 @@ test_exec()
     fi
 }
 
+test_exec_fails()
+{
+    test_echo "Test execute which should fail \"$@\""
+    "$@"    
+    status=$?
+    if [[ $status -eq 0 ]]; then
+	test_fail "FAIL: returned zero status"
+    fi
+}
+
 test_file_exists()
 {
     local file="$1"    

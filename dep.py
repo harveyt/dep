@@ -457,8 +457,12 @@ class Component:
         ConfigVar(section, "relpath", self.relpath)
         self.repository.add_to_config_section(section)
 
+    def check_has_vcs(self):
+        if self.repository is None or self.repository.vcs == "file":
+            error("{} must have been initialized with a VCS", self)
+
     def add_child(self, url):
-        # TODO: Ensure initialized?
+        self.check_has_vcs()
         self.config.read()
         self.debug_dump("pre: ")
         child = Component(self, url)

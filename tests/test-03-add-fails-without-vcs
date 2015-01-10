@@ -1,0 +1,6 @@
+#!/bin/bash
+. helpers
+test_exec $DEP init
+test_git_create_repo TOP
+url=$(test_repo_url TOP)
+test_exec_fails $DEP add "$url"
