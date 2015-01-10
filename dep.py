@@ -74,6 +74,8 @@ def run(*cmd, **kw):
     cmd = filter(None, cmd)
     cmd_text = ' '.join(cmd)
     cwd = kw.get('cwd')
+    if cwd == os.getcwd():
+        cwd = None
     query = kw.get('query')
     if not query:
         if cwd:
@@ -85,12 +87,12 @@ def run(*cmd, **kw):
         return
     try:
         if query:
-            return subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            return subprocess.check_output(cmd, stderr=subprocess.STDOUT, cwd=cwd)
         elif args.quiet:
             with open(os.devnull, "wb") as dev_null:
-                status = subprocess.call(cmd, stdout=dev_null)
+                status = subprocess.call(cmd, stdout=dev_null, cwd=cwd)
         else:
-            status = subprocess.call(cmd)
+            status = subprocess.call(cmd, cwd=cwd)
         if status != 0:
             error("Execution of '{}' returned exit status {}", cmd_text, status)
     except OSError, e:
@@ -267,6 +269,14 @@ class Repository:
         return "git"
 
     @staticmethod
+    def determine_vcs_from_work_dir(work_dir):
+        # TODO: Hard coded for now                
+        if GitRepository.is_present(work_dir):
+            return "git"
+        else:
+            return "file"
+        
+    @staticmethod
     def determine_name_from_url(url):
         # TODO: Hard coded for now        
         name = os.path.basename(url)
@@ -274,14 +284,18 @@ class Repository:
         return name
     
     @staticmethod
-    def create_from_url(work_dir, url):
+    def create(work_dir, url):
         if not url:
-            return FileRepository(work_dir)
-        vcs = Repository.determine_vcs_from_url(url)
+            url = "file://{}".format(work_dir)
+            vcs = Repository.determine_vcs_from_work_dir(work_dir)
+        else:
+            vcs = Repository.determine_vcs_from_url(url)
         # TODO: Support more VCS
         if vcs == "git":
             return GitRepository(work_dir, url)
-        else:        
+        elif vcs == "file":
+            return FileRepository(work_dir, url)
+        else:
             error("Cannot determine VCS from repository URL '{}'", url)
 
     def debug_dump(self, prefix=""):
@@ -294,9 +308,8 @@ class Repository:
         debug("{}name = {}", prefix, self.name)        
 
 class FileRepository(Repository):
-    def __init__(self, work_dir):
-        url = "file://{}".format(work_dir)
-        name = Repository.determine_name_from_url(work_dir)
+    def __init__(self, work_dir, url):
+        name = Repository.determine_name_from_url(url)
         Repository.__init__(self, work_dir, url, "file", name)
 
     def register(self, path):
@@ -332,6 +345,11 @@ class GitRepository(Repository):
         self.ignore_file = os.path.join(work_dir, ".gitignore")
         self.quiet_flag = "--quiet" if args.quiet else None
 
+    @staticmethod
+    def is_present(work_dir):
+        git_dir = os.path.join(work_dir, ".git")
+        return os.path.exists(git_dir)
+        
     def register(self, path):
         run("git", "add", path, cwd=self.work_dir)
 
@@ -420,7 +438,7 @@ class Component:
         if parent:
             parent.children.append(self)
         self.config = Config(os.path.join(self.work_dir, ".depconfig"))
-        self.repository = Repository.create_from_url(self.work_dir, url)
+        self.repository = Repository.create(self.work_dir, url)
         
     def __str__(self):
         return "Component '{}'".format(self.name)
