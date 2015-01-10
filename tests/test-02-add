@@ -1,5 +1,7 @@
 #!/bin/bash
 . helpers
+test_exec git init
+test_dir_exists .git
 test_exec $DEP init
 test_file_contains .depconfig "[core]
 	default-dep-dir = dep
@@ -15,3 +17,7 @@ test_file_contains .depconfig "[core]
 	url = $url
 	vcs = git
 "
+test_git_status_equals "A  .depconfig
+A  .gitignore
+"
+

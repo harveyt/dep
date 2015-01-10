@@ -5,6 +5,7 @@ ROOT=$PWD/..
 DEP="$ROOT/dep.py -v"
 TEST_NAME="$(basename $0)"
 TMP_DIR=$TESTS/tmp/$TEST_NAME
+TMP_WORK=$TMP_DIR/work
 TMP_REPOS=$TMP_DIR/repos
 
 test_title()
@@ -121,6 +122,7 @@ test_title
 if [[ -d $TMP_DIR ]]; then
     rm -rf $TMP_DIR
 fi
-mkdir -p $TMP_DIR
+mkdir -p $TMP_WORK
 mkdir -p $TMP_REPOS
-cd $TMP_DIR
+cd $TMP_WORK
+

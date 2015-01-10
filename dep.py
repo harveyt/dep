@@ -389,9 +389,8 @@ class GitRepository(Repository):
         verbose("Adding '{}' to ignore file '{}'", path, self.ignore_file)
         if args.dry_run:
             return
-        if not os.path.exists(self.ignore_file):
-            self.register(self.ignore_file)
-        self.pre_edit(self.ignore_file)
+        # TODO: With git we know we can just post_edit the file to do the right thing.
+        # TODO: With out vcs we might need register/pre_edit.
         try:
             with open(self.ignore_file, 'a') as f:
                 f.write('{}\n'.format(path))
@@ -406,8 +405,9 @@ class GitRepository(Repository):
         if not os.path.exists(self.ignore_file):
             # TODO: There is no ignore file, so cannot remove?
             return
+        # TODO: With git we know we can just post_edit the file to do the right thing.        
+        # TODO: With out vcs we might need pre_edit.
         ignores = self.read_ignore()
-        self.pre_edit(self.ignore_file)        
         try:
             with open(self.ignore_file, 'w') as f:
                 for ignore in ignores:
