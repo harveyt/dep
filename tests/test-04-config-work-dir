@@ -1,5 +1,21 @@
 #!/bin/bash
 . helpers
+top="$PWD"
+cd $top/..
+test_exec_fails $DEP config --top-work-dir
+test_exec_fails $DEP config --work-dir
+cd $top
 touch .depconfig
-test_output_from_exec "$PWD\n" $DEP config --work-dir
-
+test_output_from_exec "$top\n" $DEP config --top-work-dir
+test_output_from_exec "$top\n" $DEP config --work-dir
+mkdir B
+cd B
+touch .depconfig
+test_output_from_exec "$top\n" $DEP config --top-work-dir
+test_output_from_exec "$top/B\n" $DEP config --work-dir
+mkdir -p C/D
+cd C/D
+touch .depconfig
+test_output_from_exec "$top\n" $DEP config --top-work-dir
+test_output_from_exec "$top/B/C/D\n" $DEP config --work-dir
+cd $top
