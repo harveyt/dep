@@ -1,0 +1,5 @@
+#!/bin/bash
+. helpers
+touch .depconfig
+test_output_from_exec "$PWD\n" $DEP config --work-dir
+

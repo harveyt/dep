@@ -442,6 +442,31 @@ class Component:
         
     def __str__(self):
         return "Component '{}'".format(self.name)
+
+    @staticmethod
+    def find_local_work_dir(path=None):
+        if path is None:
+            path = os.getcwd()
+        path.rstrip(os.path.sep)
+        while True:
+            config_path = os.path.join(path, ".depconfig")
+            if os.path.isfile(config_path):
+                return path
+            path = os.path.dirname(path)
+            if path == os.path.sep:
+                return None
+
+    @staticmethod
+    def find_top_work_dir(path=None):
+        last_work_dir = None
+        while True:
+            work_dir = Component.find_local_work_dir(path)
+            if work_dir is None:
+                return last_work_dir
+            last_work_dir = work_dir
+            path = os.path.dirname(work_dir)
+            if path == os.path.sep:
+                return None
     
     def init(self):
         verbose("Initializing {}", self)
@@ -516,6 +541,21 @@ def command_add(args):
     root.add_child(args.url)
 
 # --------------------------------------------------------------------------------
+# Command: config
+#
+def command_config(args):
+    if args.work_dir:
+        path = Component.find_local_work_dir()
+        if path is None:
+            error("Cannot determine local working directory")
+        print path
+    if args.top_work_dir:
+        path = Component.find_top_work_dir()
+        if path is None:
+            error("Cannot determine top working directory")
+        print path
+
+# --------------------------------------------------------------------------------
 # Main
 #
 parser = argparse.ArgumentParser(description="Manages component based dependencies using version control systems (VCS).")
@@ -550,6 +590,15 @@ parser_add = subparsers.add_parser("add",
 parser_add.add_argument("url",
                         help="The URL of the dependant component's VCS repository")
 parser_add.set_defaults(func=command_add)
+
+parser_config = subparsers.add_parser("config",
+                                      help="Dependency configuration",
+                                      description="Dependency configuration.")
+parser_config.add_argument("--work-dir", action="store_true",
+                           help="Show the working directory (root) of this dependency and exit")
+parser_config.add_argument("--top-work-dir", action="store_true",
+                           help="Show the working directory (root) of the top-most dependency and exit")
+parser_config.set_defaults(func=command_config)
 
 if len(sys.argv) == 1:
     parser.print_help()

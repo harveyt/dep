@@ -7,6 +7,7 @@ TEST_NAME="$(basename $0)"
 TMP_DIR=$TESTS/tmp/$TEST_NAME
 TMP_WORK=$TMP_DIR/work
 TMP_REPOS=$TMP_DIR/repos
+DIFF_ARGS="-u --label Expected --label Actual"
 
 test_title()
 {
@@ -36,7 +37,7 @@ test_exec()
     "$@"    
     status=$?
     if [[ $status -ne 0 ]]; then
-	test_fail "FAIL: returned non-zero status $status"
+	test_fail "returned non-zero status $status"
     fi
 }
 
@@ -46,7 +47,24 @@ test_exec_fails()
     "$@"    
     status=$?
     if [[ $status -eq 0 ]]; then
-	test_fail "FAIL: returned zero status"
+	test_fail "returned zero status"
+    fi
+}
+
+test_output_from_exec()
+{
+    local expected="$1"
+    shift
+    test_echo "Test execute \"$@\" and check output"
+    output=$("$@")
+    status=$?
+    if [[ $status -ne 0 ]]; then
+	test_fail "returned non-zero status $status"
+    fi
+    echo -n -e "$expected" | diff $DIFF_ARGS - <(echo "$output")
+    status=$?
+    if [[ $status -ne 0 ]]; then
+	test_fail "execution did not output expected result"
     fi
 }
 
@@ -55,7 +73,7 @@ test_file_exists()
     local file="$1"    
     test_echo "Test file exists \"$file\""
     if [[ ! -f "$file" ]]; then
-	test_fail "FAIL: file \"$file\" does not exist"
+	test_fail "file \"$file\" does not exist"
     fi
 }
 
@@ -65,7 +83,7 @@ test_file_contains()
     local expected="$2"
     test_file_exists "$file"
     test_echo "Test file \"$file\" contains expected result"
-    echo -n -e "$expected" | diff -c - "$file"
+    echo -n -e "$expected" | diff $DIFF_ARGS - "$file"
     status=$?
     if [[ $status -ne 0 ]]; then
 	test_fail "file \"$file\" does not contain expected result"
@@ -119,7 +137,7 @@ test_git_status_equals()
 {
     local expected="$1"
     test_echo "Test git status matches expected result"
-    echo -n -e "$expected" | diff -c - <(git status -sb | sed -e '/^#/d')
+    echo -n -e "$expected" | diff $DIFF_ARGS - <(git status -sb | sed -e '/^#/d')
     status=$?
     if [[ $status -ne 0 ]]; then
 	test_fail "git status does not match expected result"
