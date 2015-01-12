@@ -23,11 +23,25 @@ test_echo()
     echo "### $@"
 }
 
+test_echo_script_location()
+{
+    local c=1
+    while true
+    do
+	if [[ ${FUNCNAME[$c]} == "main" ]]; then
+	    local file="${BASH_SOURCE[$c]}"
+	    local line="${BASH_LINENO[$((c - 1))]}"
+	    echo -n "$file:$line: "
+	    break
+	fi
+	c=$((c + 1))
+    done
+}
+
 test_fail()
 {
-    local file="$TEST_NAME"
-    local line="${BASH_LINENO[1]}"
-    echo "$file:$line: TEST FAIL: $@"
+    test_echo_script_location
+    echo "TEST FAIL: $@"
     exit 1
 }
 
@@ -125,7 +139,7 @@ test_repo_path()
 test_repo_url()
 {
     local path=$(test_repo_path "$1")
-    echo "file:///$path"
+    echo "file://$path.git"
 }
 
 test_repo_git_dir()
