@@ -336,6 +336,9 @@ class FileRepository(Repository):
     def remove_ignore(self, path):
         pass
 
+    def refresh(self):
+        pass
+    
 class GitRepository(Repository):
     def __init__(self, work_dir, url):
         name = Repository.determine_name_from_url(url)
@@ -417,6 +420,9 @@ class GitRepository(Repository):
             error("Cannot open '{}' for writing: {}'", self.ignore_file, e)
         self.post_edit(self.ignore_file)
         # TODO: Remove if ignore file is now empty?
+
+    def refresh(self):
+        pass
     
 # --------------------------------------------------------------------------------
 # Component
@@ -499,6 +505,12 @@ class Component:
         self.repository.add_ignore(child.relpath)
         self.debug_dump("post: ")
 
+    def refresh(self):
+        self.config.read()
+        self.debug_dump("pre: ")
+        for c in self.children:
+            c.repository.refresh()
+
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
             return
@@ -556,6 +568,13 @@ def command_config(args):
         print path
 
 # --------------------------------------------------------------------------------
+# Command: refresh
+#
+def command_refresh(args):
+    root = Component()
+    root.refresh()
+
+# --------------------------------------------------------------------------------
 # Main
 #
 parser = argparse.ArgumentParser(description="Manages component based dependencies using version control systems (VCS).")
@@ -599,6 +618,11 @@ parser_config.add_argument("--work-dir", action="store_true",
 parser_config.add_argument("--root-work-dir", action="store_true",
                            help="Show the working directory of the root dependency and exit")
 parser_config.set_defaults(func=command_config)
+
+parser_refresh = subparsers.add_parser("refresh",
+                                   help="Refresh dependencies from their source repositories",
+                                   description="Refresh dependencies from their source repositories.")
+parser_refresh.set_defaults(func=command_refresh)
 
 if len(sys.argv) == 1:
     parser.print_help()
