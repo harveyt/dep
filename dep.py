@@ -457,7 +457,7 @@ class Component:
                 return None
 
     @staticmethod
-    def find_top_work_dir(path=None):
+    def find_root_work_dir(path=None):
         last_work_dir = None
         while True:
             work_dir = Component.find_local_work_dir(path)
@@ -549,10 +549,10 @@ def command_config(args):
         if path is None:
             error("Cannot determine local working directory")
         print path
-    if args.top_work_dir:
-        path = Component.find_top_work_dir()
+    if args.root_work_dir:
+        path = Component.find_root_work_dir()
         if path is None:
-            error("Cannot determine top working directory")
+            error("Cannot determine root working directory")
         print path
 
 # --------------------------------------------------------------------------------
@@ -595,9 +595,9 @@ parser_config = subparsers.add_parser("config",
                                       help="Dependency configuration",
                                       description="Dependency configuration.")
 parser_config.add_argument("--work-dir", action="store_true",
-                           help="Show the working directory (root) of this dependency and exit")
-parser_config.add_argument("--top-work-dir", action="store_true",
-                           help="Show the working directory (root) of the top-most dependency and exit")
+                           help="Show the working directory of this dependency and exit")
+parser_config.add_argument("--root-work-dir", action="store_true",
+                           help="Show the working directory of the root dependency and exit")
 parser_config.set_defaults(func=command_config)
 
 if len(sys.argv) == 1:
