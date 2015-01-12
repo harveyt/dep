@@ -8,6 +8,7 @@ test_file_contains .depconfig "[core]
 "
 test_git_create_repo TOP
 url=$(test_repo_url TOP)
+commit=$(test_repo_git_commit TOP)
 test_exec $DEP add "$url"
 test_file_contains .depconfig "[core]
 	default-dep-dir = dep
@@ -16,6 +17,8 @@ test_file_contains .depconfig "[core]
 	relpath = dep/TOP
 	url = $url
 	vcs = git
+	branch = refs/heads/master
+	commit = $commit
 "
 test_git_status_equals "A  .depconfig
 A  .gitignore

@@ -148,6 +148,12 @@ test_repo_git_dir()
     echo "$path.git"
 }
 
+test_repo_git_commit()
+{
+    local git_dir=$(test_repo_git_dir "$1")
+    echo $(git --git-dir $git_dir rev-parse HEAD)
+}
+
 test_git_create_repo()
 {
     local name="$1"

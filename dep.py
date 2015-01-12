@@ -276,6 +276,8 @@ class Repository:
         self.url = url
         self.vcs = vcs
         self.name = name
+        self.branch = None
+        self.commit = None
 
     def __str__(self):
         return "{} '{}'".format(self.__class__.__name__, self.work_dir)
@@ -283,6 +285,10 @@ class Repository:
     def add_to_config_section(self, section):
         ConfigVar(section, "url", self.url)
         ConfigVar(section, "vcs", self.vcs)
+        if self.branch:
+            ConfigVar(section, "branch", self.branch)
+        if self.commit:
+            ConfigVar(section, "commit", self.commit)
         
     @staticmethod
     def determine_vcs_from_url(url):
@@ -362,7 +368,10 @@ class FileRepository(Repository):
    
     def refresh(self):
         pass
-    
+
+    def record(self):
+        pass
+
 class GitRepository(Repository):
     def __init__(self, work_dir, url):
         name = Repository.determine_name_from_url(url)
@@ -468,6 +477,24 @@ class GitRepository(Repository):
         if self.has_local_modifications():
             error("{} has local modifications, not refreshed", self)
         # TODO: Download probably will not checkout eventually, should do this here?
+
+    def _get_branch(self):
+        branch = run_query("git", "rev-parse", "--symbolic-full-name", "HEAD", cwd=self.work_dir).rstrip("\n")
+        # TODO: Check it is valid!
+        if branch == "HEAD":
+            # Detached head is not supported (yet), need to checkout a branch.
+            # TODO: Support checkout of tag and arbitary commit - pick the first sensible branch containing that commit.
+            error("{} is checked out with a detached head, not yet supported; checkout a branch (not a tag)", self)
+        return branch
+
+    def _get_commit(self):
+        commit = run_query("git", "rev-parse", "HEAD", cwd=self.work_dir).rstrip("\n")
+        # TODO: Check it is valid!
+        return commit
+
+    def record(self):
+        self.branch = self._get_branch()
+        self.commit = self._get_commit()        
         
 # --------------------------------------------------------------------------------
 # Component
@@ -548,14 +575,19 @@ class Component:
             child = Component(parent=self, section=s)
         self.debug_dump("read: ")
 
+    def record_state(self):
+        self.check_has_vcs()
+        self.repository.record()
+
     def add_child(self, url):
         self.read_state()
         child = Component(parent=self, url=url)
+        child.repository.download()
+        child.record_state()
         child.add_to_config(self.config)
         self.repository.pre_edit(self.config.path)
         self.config.write()
         self.repository.post_edit(self.config.path)
-        child.repository.download()
         self.repository.add_ignore(child.relpath)
         self.debug_dump("add_child: ")
         
