@@ -357,6 +357,9 @@ class FileRepository(Repository):
     def remove_ignore(self, path):
         pass
 
+    def has_local_modifications(self):
+        return True
+   
     def refresh(self):
         pass
     
@@ -392,7 +395,7 @@ class GitRepository(Repository):
         status("Downloading {} from '{}'", self, self.url)
         run("git", "clone", self.quiet_flag, self.url, self.work_dir)
 
-    def read_ignore(self):
+    def _read_ignore(self):
         if not os.path.exists(self.ignore_file):
             return []
         try:
@@ -406,7 +409,7 @@ class GitRepository(Repository):
             error("Cannot open '{}' for reading: {}'", self.ignore_file, e)
 
     def has_ignore(self, path):
-        ignores = self.read_ignore()
+        ignores = self._read_ignore()
         return path in ignores
 
     def add_ignore(self, path):
@@ -431,7 +434,7 @@ class GitRepository(Repository):
             return
         # TODO: With git we know we can just post_edit the file to do the right thing.        
         # TODO: With out vcs we might need pre_edit.
-        ignores = self.read_ignore()
+        ignores = self._read_ignore()
         try:
             with open(self.ignore_file, 'w') as f:
                 for ignore in ignores:
@@ -442,7 +445,7 @@ class GitRepository(Repository):
         self.post_edit(self.ignore_file)
         # TODO: Remove if ignore file is now empty?
 
-    def get_status(self):
+    def _get_status(self):
         ahead = 0
         behind = 0
         changes = 0
@@ -457,7 +460,7 @@ class GitRepository(Repository):
         return (changes, ahead, behind)    
 
     def has_local_modifications(self):
-        return self.get_status()[0] > 0
+        return self._get_status()[0] > 0
     
     def refresh(self):
         if not os.path.exists(self.git_dir):
