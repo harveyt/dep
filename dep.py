@@ -119,13 +119,13 @@ def make_dirs(dir):
 
 class Pipe:
     def __init__(self, *cmd, **kw):
-        self.process = run_query(*cmd, pipe=True, **kw)
+        self.process = run(*cmd, pipe=True, **kw)
         self.cmd_text = ' '.join(filter(None, cmd))        
 
     def __enter__(self):
         return self.process.stdout
 
-    def __exit__(type, value, traceback):
+    def __exit__(self, type, value, traceback):
         exit_status = self.process.wait()
         if exit_status != 0:
             error("{} returned exit code {}", self.cmd_text, exit_status)
@@ -181,6 +181,11 @@ class Config:
                 return s
         raise KeyError("Unknown section '{}' in {}".format(key, self))
 
+    def sections_named(self, name):
+        for b in self.sections:
+            if b.name == name:
+                yield b
+    
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
             return
@@ -441,8 +446,8 @@ class GitRepository(Repository):
         ahead = 0
         behind = 0
         changes = 0
-        with Pipe("git", "status", "--porcelain", "--branch", cwd=self.root_dir) as p:
-            while line in p:
+        with Pipe("git", "status", "--porcelain", "--branch", cwd=self.work_dir) as p:
+            for line in p:
                 m = re.match(r"##\s+[^[]*(\[(\s*ahead\s+(\d+)\s*)?,?(\s*behind\s+(\d+)\s*)?\])?", line)
                 if m:
                     ahead = m.group(3) if m.group(3) else 0
@@ -455,10 +460,10 @@ class GitRepository(Repository):
         return self.get_status()[0] > 0
     
     def refresh(self):
-        if self.repository.has_local_modifications():
-            error("{} has local modifications, not refreshed", self)
         if not os.path.exists(self.git_dir):
             self.download()
+        if self.has_local_modifications():
+            error("{} has local modifications, not refreshed", self)
         # TODO: Download probably will not checkout eventually, should do this here?
         
 # --------------------------------------------------------------------------------
@@ -529,10 +534,16 @@ class Component:
         if self.repository is None or self.repository.vcs == "file":
             error("{} must have been initialized with a VCS", self)
 
-    def add_child(self, url):
+    def read_state(self):
         self.check_has_vcs()
         self.config.read()
-        self.debug_dump("pre: ")
+        for s in self.config.sections_named("dep"):
+            # TODO: Pass down name and other details
+            child = Component(parent=self, url=s["url"])
+        self.debug_dump("read: ")
+
+    def add_child(self, url):
+        self.read_state()
         child = Component(self, url)
         child.add_to_config(self.config)
         self.repository.pre_edit(self.config.path)
@@ -540,13 +551,13 @@ class Component:
         self.repository.post_edit(self.config.path)
         child.repository.download()
         self.repository.add_ignore(child.relpath)
-        self.debug_dump("post: ")
-
+        self.debug_dump("add_child: ")
+        
     def refresh(self):
-        self.config.read()
-        self.debug_dump("pre: ")
+        self.read_state()
         for c in self.children:
             c.repository.refresh()
+        self.debug_dump("refresh: ")            
 
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
