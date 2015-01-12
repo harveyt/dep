@@ -77,6 +77,15 @@ test_file_exists()
     fi
 }
 
+test_file_missing()
+{
+    local file="$1"    
+    test_echo "Test file missing \"$file\""
+    if [[ -f "$file" ]]; then
+	test_fail "file \"$file\" exists"
+    fi
+}
+
 test_file_contains()
 {
     local file="$1"
@@ -96,6 +105,15 @@ test_dir_exists()
     test_echo "Test dir exists \"$dir\""
     if [[ ! -d "$dir" ]]; then
 	test_fail "dir \"$dir\" does not exist"
+    fi
+}
+
+test_dir_missing()
+{
+    local dir="$1"    
+    test_echo "Test dir missing \"$dir\""
+    if [[ -d "$dir" ]]; then
+	test_fail "dir \"$dir\" exists"
     fi
 }
 
@@ -142,6 +160,22 @@ test_git_status_equals()
     if [[ $status -ne 0 ]]; then
 	test_fail "git status does not match expected result"
     fi
+}
+
+test_git_work_dir_exists()
+{
+    local path="$1"
+    local git_dir="$path/.git"
+    test_dir_exists "$path"
+    test_dir_exists "$git_dir"
+}   
+
+test_git_work_dir_missing()
+{
+    local path="$1"
+    local git_dir="$path/.git"
+    test_dir_missing "$path"
+    test_dir_missing "$git_dir"
 }   
 
 test_title
@@ -153,4 +187,3 @@ fi
 mkdir -p $TMP_WORK
 mkdir -p $TMP_REPOS
 cd $TMP_WORK
-

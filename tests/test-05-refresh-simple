@@ -1,0 +1,26 @@
+#!/bin/bash
+. helpers
+
+# Create ROOT which depends on component A.
+test_git_create_repo ROOT
+ROOT_url=$(test_repo_url ROOT)
+ROOT_path=$(test_repo_path ROOT)
+test_git_create_repo A
+A_url=$(test_repo_url A)
+cd $ROOT_path
+test_exec $DEP init
+test_exec $DEP add "$A_url"
+test_git_work_dir_exists dep/A
+test_file_exists dep/A/FILE-A
+test_exec git commit -m "Add A dependency."
+
+cd $TMP_WORK
+git clone $ROOT_url ROOT
+test_git_work_dir_exists ROOT
+cd ROOT
+test_file_exists FILE-ROOT
+test_git_work_dir_missing dep/A
+test_file_missing dep/A/FILE-A
+test_exec $DEP refresh
+test_git_work_dir_exists dep/A
+test_file_exists dep/A/FILE-A
