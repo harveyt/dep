@@ -12,10 +12,11 @@ test_exec $DEP init
 test_exec $DEP add "$A_url"
 test_git_work_dir_exists dep/A
 test_file_exists dep/A/FILE-A
-test_exec git commit -m "Add A dependency."
+test_exec git commit -m "Add a dependency."
+test_exec git push
 
 cd $TMP_WORK
-git clone $ROOT_url ROOT
+test_exec git clone $ROOT_url ROOT
 test_git_work_dir_exists ROOT
 cd ROOT
 test_file_exists FILE-ROOT

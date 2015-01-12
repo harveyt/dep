@@ -470,13 +470,16 @@ class GitRepository(Repository):
 # Component
 #
 class Component:
-    def __init__(self, parent=None, url=None):
-        # TODO: Override by default
+    def __init__(self, parent=None, url=None, section=None):
         if url:
             self.name = Repository.determine_name_from_url(url)
+        elif section:
+            self.name = section.subname
+            url = section["url"]
         else:
             self.name = Repository.determine_name_from_url(os.getcwd())
-        # TODO: Override by default
+            # TODO: This flags to use file style url, fix so this is done here?
+            url = None
         dep_dir = parent.config["core"]["default-dep-dir"] if parent else "dep"
         self.relpath = os.path.join(dep_dir, self.name)
         self.work_dir = os.path.join(parent.work_dir, self.relpath) if parent else os.getcwd()
@@ -486,6 +489,7 @@ class Component:
         if parent:
             parent.children.append(self)
         self.config = Config(os.path.join(self.work_dir, ".depconfig"))
+        # TODO: Pass down name?
         self.repository = Repository.create(self.work_dir, url)
         
     def __str__(self):
@@ -538,13 +542,12 @@ class Component:
         self.check_has_vcs()
         self.config.read()
         for s in self.config.sections_named("dep"):
-            # TODO: Pass down name and other details
-            child = Component(parent=self, url=s["url"])
+            child = Component(parent=self, section=s)
         self.debug_dump("read: ")
 
     def add_child(self, url):
         self.read_state()
-        child = Component(self, url)
+        child = Component(parent=self, url=url)
         child.add_to_config(self.config)
         self.repository.pre_edit(self.config.path)
         self.config.write()
