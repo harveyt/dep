@@ -77,17 +77,20 @@ def run(*cmd, **kw):
     if cwd == os.getcwd():
         cwd = None
     query = kw.get('query')
-    if not query:
+    pipe = kw.get('pipe')
+    if not query and not pipe:
         if cwd:
             verbose("-> pushd {}", cwd)
         verbose("-> {}", cmd_text)
         if cwd:
             verbose("-> popd")
-    if args.dry_run and not query:
+    if args.dry_run and not query and not pipe:
         return
     try:
         if query:
             return subprocess.check_output(cmd, stderr=subprocess.STDOUT, cwd=cwd)
+        elif pipe:
+            return subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=cwd)            
         elif args.quiet:
             with open(os.devnull, "wb") as dev_null:
                 status = subprocess.call(cmd, stdout=dev_null, cwd=cwd)
@@ -114,6 +117,19 @@ def make_dirs(dir):
     except OSError, e:
         error("Cannot make directory path '{}'", dir)
 
+class Pipe:
+    def __init__(self, *cmd, **kw):
+        self.process = run_query(*cmd, pipe=True, **kw)
+        self.cmd_text = ' '.join(filter(None, cmd))        
+
+    def __enter__(self):
+        return self.process.stdout
+
+    def __exit__(type, value, traceback):
+        exit_status = self.process.wait()
+        if exit_status != 0:
+            error("{} returned exit code {}", self.cmd_text, exit_status)
+        
 # --------------------------------------------------------------------------------
 # Configuration
 #
@@ -421,9 +437,30 @@ class GitRepository(Repository):
         self.post_edit(self.ignore_file)
         # TODO: Remove if ignore file is now empty?
 
-    def refresh(self):
-        pass
+    def get_status(self):
+        ahead = 0
+        behind = 0
+        changes = 0
+        with Pipe("git", "status", "--porcelain", "--branch", cwd=self.root_dir) as p:
+            while line in p:
+                m = re.match(r"##\s+[^[]*(\[(\s*ahead\s+(\d+)\s*)?,?(\s*behind\s+(\d+)\s*)?\])?", line)
+                if m:
+                    ahead = m.group(3) if m.group(3) else 0
+                    behind = m.group(5) if m.group(5) else 0
+                else:
+                    changes = changes + 1
+        return (changes, ahead, behind)    
+
+    def has_local_modifications(self):
+        return self.get_status()[0] > 0
     
+    def refresh(self):
+        if self.repository.has_local_modifications():
+            error("{} has local modifications, not refreshed", self)
+        if not os.path.exists(self.git_dir):
+            self.download()
+        # TODO: Download probably will not checkout eventually, should do this here?
+        
 # --------------------------------------------------------------------------------
 # Component
 #
