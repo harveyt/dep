@@ -354,6 +354,9 @@ class FileRepository(Repository):
     def download(self):
         pass
 
+    def checkout(self, branch=None, commit=None):
+        pass
+    
     def has_ignore(self, path):
         return False
 
@@ -401,8 +404,17 @@ class GitRepository(Repository):
     def download(self):
         validate_dir_notexists(self.work_dir)
         validate_dir_notexists(self.git_dir)
-        status("Downloading {} from '{}'", self, self.url)
-        run("git", "clone", self.quiet_flag, self.url, self.work_dir)
+        status("Downloading {}\n    from '{}'", self, self.url)
+        run("git", "clone", self.quiet_flag, "--no-checkout", self.url, self.work_dir)
+
+    def checkout(self, branch=None, commit=None):
+        branch_flag = None if branch is None else "-B"
+        branch_name = None if branch is None else branch
+        commit_flag = None if commit is None else commit
+        branch_mesg = "" if branch is None else "\n    on branch '{}'".format(branch)        
+        commit_mesg = "" if commit is None else "\n    at commit '{}'".format(commit)
+        status("Checkout {}{}{}\n    in '{}'", self, branch_mesg, commit_mesg, self.work_dir)
+        run("git", "checkout", self.quiet_flag, branch_flag, branch_name, commit_flag, cwd=self.work_dir)
 
     def _read_ignore(self):
         if not os.path.exists(self.ignore_file):
@@ -472,11 +484,14 @@ class GitRepository(Repository):
         return self._get_status()[0] > 0
     
     def refresh(self):
+        check_local = True
+        if not os.path.exists(self.work_dir):
+            check_local = False
         if not os.path.exists(self.git_dir):
             self.download()
-        if self.has_local_modifications():
+        if check_local and self.has_local_modifications():
             error("{} has local modifications, not refreshed", self)
-        # TODO: Download probably will not checkout eventually, should do this here?
+        self.checkout(self.branch, self.commit)
 
     def _get_branch(self):
         branch = run_query("git", "rev-parse", "--symbolic-full-name", "HEAD", cwd=self.work_dir).rstrip("\n")
@@ -521,6 +536,10 @@ class Component:
         self.config = Config(os.path.join(self.work_dir, ".depconfig"))
         # TODO: Pass down name?
         self.repository = Repository.create(self.work_dir, url)
+        # TODO: Pass down section to do this?
+        if section:
+            self.repository.branch = section["branch"]
+            self.repository.commit = section["commit"]
         
     def __str__(self):
         return "Component '{}'".format(self.name)
@@ -583,6 +602,7 @@ class Component:
         self.read_state()
         child = Component(parent=self, url=url)
         child.repository.download()
+        child.repository.checkout()
         child.record_state()
         child.add_to_config(self.config)
         self.repository.pre_edit(self.config.path)
