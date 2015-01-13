@@ -1,0 +1,57 @@
+#!/bin/bash
+. helpers
+
+# Create ROOT which depends on component A
+test_git_create_repo ROOT
+ROOT_url=$(test_repo_url ROOT)
+ROOT_path=$(test_repo_path ROOT)
+test_git_create_repo A
+A_url=$(test_repo_url A)
+A_path=$(test_repo_path A)
+A_old_commit=$(test_repo_git_commit A)
+cd $ROOT_path
+test_exec $DEP init
+test_exec $DEP add "$A_url"
+test_git_work_dir_exists dep/A
+test_file_exists dep/A/FILE-A
+test_exec git commit -m "Add a dependency."
+test_exec git push
+
+# Modify dep/A directly
+cd dep/A
+echo "MODIFIED A" >> FILE-A
+test_exec git add FILE-A
+test_exec git commit -m "Modified A."
+test_exec git push
+A_new_commit=$(test_repo_git_commit A)
+
+# Now record the state which should change from older commit to newer.
+cd $ROOT_path
+test_file_contains .depconfig "[core]
+	default-dep-dir = dep
+
+[dep \"A\"]
+	relpath = dep/A
+	url = $A_url
+	vcs = git
+	branch = refs/heads/master
+	commit = $A_old_commit
+"
+test_exec $DEP record
+test_file_contains .depconfig "[core]
+	default-dep-dir = dep
+
+[dep \"A\"]
+	relpath = dep/A
+	url = $A_url
+	vcs = git
+	branch = refs/heads/master
+	commit = $A_new_commit
+"
+
+# Now clone and refresh ROOT, it should have the modified A
+cd $TMP_WORK
+test_exec git clone $ROOT_url ROOT
+cd ROOT
+test_exec $DEP refresh
+test_file_contains dep/A/FILE-A "MODIFIED A"

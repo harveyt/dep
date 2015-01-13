@@ -615,7 +615,16 @@ class Component:
         self.read_state()
         for c in self.children:
             c.repository.refresh()
-        self.debug_dump("refresh: ")            
+        self.debug_dump("refresh: ")
+
+    def record(self):
+        self.read_state()
+        for c in self.children:
+            c.repository.record()
+            # TODO: Only write config if commit/branch changes?
+        self.repository.pre_edit(self.config.path)
+        self.config.write()
+        self.repository.post_edit(self.config.path)
 
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
@@ -681,6 +690,13 @@ def command_refresh(args):
     root.refresh()
 
 # --------------------------------------------------------------------------------
+# Command: record
+#
+def command_record(args):
+    root = Component()
+    root.record()
+    
+# --------------------------------------------------------------------------------
 # Main
 #
 parser = argparse.ArgumentParser(description="Manages component based dependencies using version control systems (VCS).")
@@ -729,6 +745,11 @@ parser_refresh = subparsers.add_parser("refresh",
                                    help="Refresh dependencies from their source repositories",
                                    description="Refresh dependencies from their source repositories.")
 parser_refresh.set_defaults(func=command_refresh)
+
+parser_record = subparsers.add_parser("record",
+                                   help="Record dependencies from current source repository state",
+                                   description="Record dependencies from current source repository state.")
+parser_record.set_defaults(func=command_record)
 
 if len(sys.argv) == 1:
     parser.print_help()
