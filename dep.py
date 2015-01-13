@@ -585,40 +585,40 @@ class Component:
         self.repository.register(self.config.path)
         self.debug_dump("post: ")
 
-    def add_to_config(self, config):
+    def _add_to_config(self, config):
         section = ConfigSection(config, "dep", self.name)
         ConfigVar(section, "relpath", self.relpath)
         self.repository.update_config_section(section)
 
-    def check_has_vcs(self):
+    def _check_has_vcs(self):
         if self.repository is None or self.repository.vcs == "file":
             error("{} must have been initialized with a VCS", self)
 
-    def read_state(self):
-        self.check_has_vcs()
+    def _read_state(self):
+        self._check_has_vcs()
         self.config.read()
         for s in self.config.sections_named("dep"):
             child = Component(parent=self, section=s)
         self.debug_dump("read: ")
 
-    def refresh_state(self):
+    def _refresh_state(self):
         for c in self.children:
             c.repository.refresh()
 
-    def record_state(self):
-        self.check_has_vcs()
+    def _record_state(self):
+        self._check_has_vcs()
         self.repository.record()
         if self.parent:
             section = self.parent.config["dep." + self.name]
             self.repository.update_config_section(section)
 
     def add_child(self, url):
-        self.read_state()
+        self._read_state()
         child = Component(parent=self, url=url)
         child.repository.download()
         child.repository.checkout()
-        child.add_to_config(self.config)        
-        child.record_state()
+        child._add_to_config(self.config)        
+        child._record_state()
         self.repository.pre_edit(self.config.path)
         self.config.write()
         self.repository.post_edit(self.config.path)
@@ -626,14 +626,14 @@ class Component:
         self.debug_dump("add_child: ")
         
     def refresh(self):
-        self.read_state()
-        self.refresh_state()
+        self._read_state()
+        self._refresh_state()
         self.debug_dump("refresh: ")
 
     def record(self):
-        self.read_state()
+        self._read_state()
         for c in self.children:
-            c.record_state()
+            c._record_state()
         # TODO: Only write config if commit/branch changes?
         self.repository.pre_edit(self.config.path)
         self.config.write()
