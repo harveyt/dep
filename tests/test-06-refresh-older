@@ -1,0 +1,30 @@
+#!/bin/bash
+. helpers
+
+# Create ROOT which depends on component A
+test_git_create_repo ROOT
+ROOT_url=$(test_repo_url ROOT)
+ROOT_path=$(test_repo_path ROOT)
+test_git_create_repo A
+A_url=$(test_repo_url A)
+A_path=$(test_repo_path A)
+cd $ROOT_path
+test_exec $DEP init
+test_exec $DEP add "$A_url"
+test_git_work_dir_exists dep/A
+test_file_exists dep/A/FILE-A
+test_exec git commit -m "Add a dependency."
+test_exec git push
+
+# Modify A repository.
+cd $A_path
+echo "MODIFIED A" >> FILE-A
+test_exec git add FILE-A
+test_exec git commit -m "Modified A."
+
+# Now clone and refresh ROOT, it should have the original unmodified A recorded when it was added.
+cd $TMP_WORK
+test_exec git clone $ROOT_url ROOT
+cd ROOT
+test_exec $DEP refresh
+test_file_contains dep/A/FILE-A ""
