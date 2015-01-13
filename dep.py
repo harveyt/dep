@@ -141,8 +141,12 @@ class Config:
     def __str__(self):
         return "Config '{}'".format(self.path)
 
+    def exists(self):
+        return os.path.exists(self.path)
+    
     def read(self):
         status("Reading {}", self)
+        self.sections = []
         try:
             section = None
             with open(self.path, 'r') as handle:
@@ -340,6 +344,8 @@ class Repository:
         debug("{}url = {}", prefix, self.url)
         debug("{}vcs = {}", prefix, self.vcs)
         debug("{}name = {}", prefix, self.name)        
+        debug("{}branch = {}", prefix, self.branch)
+        debug("{}commit = {}", prefix, self.commit)        
 
 class FileRepository(Repository):
     def __init__(self, work_dir, url):
@@ -595,13 +601,12 @@ class Component:
             error("{} must have been initialized with a VCS", self)
 
     def _read_state(self):
-        self._check_has_vcs()
         self.config.read()
         for s in self.config.sections_named("dep"):
             child = Component(parent=self, section=s)
-        self.debug_dump("read: ")
 
     def _refresh_state(self):
+        self._check_has_vcs()
         for c in self.children:
             c.repository.refresh()
 
@@ -618,23 +623,33 @@ class Component:
         self.repository.post_edit(self.config.path)
 
     def add_child(self, url):
+        self._check_has_vcs()
         self._read_state()
+        self.debug_dump("read: ")
         child = Component(parent=self, url=url)
-        child.repository.download()
-        child.repository.checkout()
+        child.repository.refresh()
         child._add_to_config(self.config)
         child._record_state()
+        child.refresh()
         self._write_state()
         self.repository.add_ignore(child.relpath)
         self.debug_dump("add_child: ")
         
     def refresh(self):
+        if not self.config.exists():
+            return
+        self._check_has_vcs()
         self._read_state()
+        self.debug_dump("read: ")
         self._refresh_state()
         self.debug_dump("refresh: ")
+        for c in self.children:
+            c.refresh()
 
     def record(self):
+        self._check_has_vcs()
         self._read_state()
+        self.debug_dump("read: ")
         for c in self.children:
             c._record_state()
         self._write_state()        

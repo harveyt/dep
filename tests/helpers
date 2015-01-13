@@ -131,6 +131,20 @@ test_dir_missing()
     fi
 }
 
+test_symlink_exists()
+{
+    local source="$1"
+    local dest="$2"
+    test_echo "Test symlink exists \"$source\" -> \"$dest\""
+    if [[ ! -L $source ]]; then
+	test_fail "symlink \"$source\" does not exist"
+    fi
+    actual_dest=$(readlink)
+    if [[ "$dest" != "$actual_dest" ]]; then
+	test_fail "symlink \"$source\" does point at \"$dest\""
+    fi
+}
+
 test_repo_path()
 {
     echo "$TMP_REPOS/$1"

@@ -1,0 +1,51 @@
+#!/bin/bash
+. helpers
+
+#
+# Build a two level dependency chain:
+#
+# ROOT -> A -> B
+#
+test_git_create_repo ROOT
+ROOT_url=$(test_repo_url ROOT)
+ROOT_path=$(test_repo_path ROOT)
+
+test_git_create_repo A
+A_url=$(test_repo_url A)
+A_path=$(test_repo_path A)
+
+test_git_create_repo B
+B_url=$(test_repo_url B)
+B_path=$(test_repo_path B)
+
+cd $A_path
+test_exec $DEP init
+test_exec $DEP add "$B_url"
+test_exec git commit -m "Add A -> B dependency."
+test_exec git push
+
+test_layout()
+{
+    test_git_work_dir_exists dep/A
+    test_git_work_dir_exists dep/A/dep/B
+    test_file_exists dep/A/FILE-A
+    test_file_exists dep/A/dep/B/FILE-B
+}
+    
+cd $ROOT_path
+test_exec $DEP init
+test_exec $DEP add "$A_url"
+test_exec git commit -m "Add ROOT -> A dependency."
+test_exec git push
+test_layout
+
+cd $TMP_WORK
+test_exec git clone $ROOT_url ROOT
+test_git_work_dir_exists ROOT
+cd ROOT
+test_git_work_dir_missing dep/A
+test_git_work_dir_missing dep/B
+test_file_missing dep/A/FILE-A
+test_file_missing dep/B/FILE-B
+test_exec $DEP refresh
+test_layout
