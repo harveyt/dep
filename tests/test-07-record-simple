@@ -48,10 +48,12 @@ test_file_contains .depconfig "[core]
 	branch = refs/heads/master
 	commit = $A_new_commit
 "
+git commit -m 'Updated ROOT with modified A.'
+git push
 
 # Now clone and refresh ROOT, it should have the modified A
 cd $TMP_WORK
 test_exec git clone $ROOT_url ROOT
 cd ROOT
 test_exec $DEP refresh
-test_file_contains dep/A/FILE-A "MODIFIED A"
+test_file_contains dep/A/FILE-A "MODIFIED A\n"

@@ -234,6 +234,13 @@ class ConfigSection:
                 return v.value
         raise KeyError("Unknown variable '{}.{}' in {}".format(self.fullname, key, self.config))
 
+    def __setitem__(self, key, value):
+        for v in self.vars:
+            if v.name == key:
+                v.value = value
+                return
+        ConfigVar(self, key, value)
+    
     def debug_dump(self, prefix=""):
         prefix = "{}{}.".format(prefix, self.fullname)
         for v in self.vars:
@@ -282,13 +289,13 @@ class Repository:
     def __str__(self):
         return "{} '{}'".format(self.__class__.__name__, self.work_dir)
 
-    def add_to_config_section(self, section):
-        ConfigVar(section, "url", self.url)
-        ConfigVar(section, "vcs", self.vcs)
+    def update_config_section(self, section):
+        section["url"] = self.url
+        section["vcs"] = self.vcs
         if self.branch:
-            ConfigVar(section, "branch", self.branch)
+            section["branch"] = self.branch
         if self.commit:
-            ConfigVar(section, "commit", self.commit)
+            section["commit"] = self.commit
         
     @staticmethod
     def determine_vcs_from_url(url):
@@ -581,7 +588,7 @@ class Component:
     def add_to_config(self, config):
         section = ConfigSection(config, "dep", self.name)
         ConfigVar(section, "relpath", self.relpath)
-        self.repository.add_to_config_section(section)
+        self.repository.update_config_section(section)
 
     def check_has_vcs(self):
         if self.repository is None or self.repository.vcs == "file":
@@ -594,17 +601,24 @@ class Component:
             child = Component(parent=self, section=s)
         self.debug_dump("read: ")
 
+    def refresh_state(self):
+        for c in self.children:
+            c.repository.refresh()
+
     def record_state(self):
         self.check_has_vcs()
         self.repository.record()
+        if self.parent:
+            section = self.parent.config["dep." + self.name]
+            self.repository.update_config_section(section)
 
     def add_child(self, url):
         self.read_state()
         child = Component(parent=self, url=url)
         child.repository.download()
         child.repository.checkout()
+        child.add_to_config(self.config)        
         child.record_state()
-        child.add_to_config(self.config)
         self.repository.pre_edit(self.config.path)
         self.config.write()
         self.repository.post_edit(self.config.path)
@@ -613,18 +627,18 @@ class Component:
         
     def refresh(self):
         self.read_state()
-        for c in self.children:
-            c.repository.refresh()
+        self.refresh_state()
         self.debug_dump("refresh: ")
 
     def record(self):
         self.read_state()
         for c in self.children:
-            c.repository.record()
-            # TODO: Only write config if commit/branch changes?
+            c.record_state()
+        # TODO: Only write config if commit/branch changes?
         self.repository.pre_edit(self.config.path)
         self.config.write()
         self.repository.post_edit(self.config.path)
+        self.debug_dump("record: ")        
 
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
