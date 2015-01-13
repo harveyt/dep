@@ -3,6 +3,8 @@ Dep - A Dependency Management Tool
 
 *TODO*
 
+**WARNING**: Still in early development; nothing may work and everything may change!
+
 License
 =======
 
