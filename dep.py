@@ -612,16 +612,19 @@ class Component:
             section = self.parent.config["dep." + self.name]
             self.repository.update_config_section(section)
 
+    def _write_state(self):
+        self.repository.pre_edit(self.config.path)
+        self.config.write()
+        self.repository.post_edit(self.config.path)
+
     def add_child(self, url):
         self._read_state()
         child = Component(parent=self, url=url)
         child.repository.download()
         child.repository.checkout()
-        child._add_to_config(self.config)        
+        child._add_to_config(self.config)
         child._record_state()
-        self.repository.pre_edit(self.config.path)
-        self.config.write()
-        self.repository.post_edit(self.config.path)
+        self._write_state()
         self.repository.add_ignore(child.relpath)
         self.debug_dump("add_child: ")
         
@@ -634,10 +637,7 @@ class Component:
         self._read_state()
         for c in self.children:
             c._record_state()
-        # TODO: Only write config if commit/branch changes?
-        self.repository.pre_edit(self.config.path)
-        self.config.write()
-        self.repository.post_edit(self.config.path)
+        self._write_state()        
         self.debug_dump("record: ")        
 
     def debug_dump(self, prefix=""):
