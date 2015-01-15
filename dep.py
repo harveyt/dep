@@ -145,7 +145,7 @@ class Config:
         return os.path.exists(self.path)
     
     def read(self):
-        status("Reading {}", self)
+        verbose("Reading {}", self)
         self.sections = []
         try:
             section = None
@@ -169,7 +169,7 @@ class Config:
             error("Cannot open {} for reading: {}'", self, e)
 
     def write(self):
-        status("Writing {}", self)
+        verbose("Writing {}", self)
         if args.dry_run:
             return
         try:
@@ -652,8 +652,15 @@ class Component:
         self.debug_dump("read: ")
         for c in self.children:
             c._record_state()
-        self._write_state()        
-        self.debug_dump("record: ")        
+        self._write_state()
+        self.debug_dump("record: ")
+
+    def list(self):
+        if not self.config.exists():
+            return
+        self._read_state()
+        for c in self.children:
+            print c.name
 
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
@@ -724,7 +731,14 @@ def command_refresh(args):
 def command_record(args):
     root = Component()
     root.record()
-    
+
+# --------------------------------------------------------------------------------
+# Command: list
+#
+def command_list(args):
+    root = Component()
+    root.list()
+
 # --------------------------------------------------------------------------------
 # Main
 #
@@ -779,6 +793,11 @@ parser_record = subparsers.add_parser("record",
                                    help="Record dependencies from current source repository state",
                                    description="Record dependencies from current source repository state.")
 parser_record.set_defaults(func=command_record)
+
+parser_list = subparsers.add_parser("list",
+                                   help="List dependencies",
+                                   description="List dependencies.")
+parser_list.set_defaults(func=command_list)
 
 if len(sys.argv) == 1:
     parser.print_help()

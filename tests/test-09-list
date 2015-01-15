@@ -1,0 +1,22 @@
+#!/bin/bash
+. helpers
+
+#
+# Build a one level dependency
+#
+# ROOT -> A
+#
+test_git_create_repo ROOT
+ROOT_url=$(test_repo_url ROOT)
+ROOT_path=$(test_repo_path ROOT)
+
+test_git_create_repo A
+A_url=$(test_repo_url A)
+A_path=$(test_repo_path A)
+
+cd $ROOT_path
+test_output_from_exec "" $DEP_PATH list
+test_exec $DEP init
+test_output_from_exec "" $DEP_PATH list
+test_exec $DEP add "$A_url"
+test_output_from_exec "A\n" $DEP_PATH list

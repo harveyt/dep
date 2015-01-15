@@ -2,7 +2,8 @@
 
 TESTS=$PWD
 ROOT=$PWD/..
-DEP="$ROOT/dep.py -v"
+DEP_PATH="$ROOT/dep.py"
+DEP="$DEP_PATH -v"
 TEST_NAME="$(basename $0)"
 TMP_DIR=$TESTS/tmp/$TEST_NAME
 TMP_WORK=$TMP_DIR/work
@@ -70,12 +71,12 @@ test_output_from_exec()
     local expected="$1"
     shift
     test_echo "Test execute \"$@\" and check output"
-    output=$("$@")
+    "$@" > $TMP_DIR/output
     status=$?
     if [[ $status -ne 0 ]]; then
 	test_fail "returned non-zero status $status"
     fi
-    echo -n -e "$expected" | diff $DIFF_ARGS - <(echo "$output")
+    echo -n -e "$expected" | diff $DIFF_ARGS - $TMP_DIR/output
     status=$?
     if [[ $status -ne 0 ]]; then
 	test_fail "execution did not output expected result"
