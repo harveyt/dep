@@ -521,8 +521,14 @@ class GitRepository(Repository):
         return commit
 
     def record(self):
-        self.branch = self._get_branch()
-        self.commit = self._get_commit()        
+        new_branch = self._get_branch()
+        new_commit = self._get_commit()
+        if new_branch != self.branch or new_commit != self.commit:
+            self.branch = new_branch
+            self.commit = new_commit
+            status("""Recording {}
+    at commit '{}'
+    on branch '{}'""", self, self.commit, self.branch)
         
 # --------------------------------------------------------------------------------
 # Component
