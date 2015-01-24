@@ -1,7 +1,7 @@
 Dep - A Dependency Management Tool
 ==================================
 
-*TODO*
+Blog post describing this tool can be found at <http://www.610yesnolovely.org/2015/01/24/dep.html>.
 
 **WARNING**: Still in early development; nothing may work and everything may change!
 
