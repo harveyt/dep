@@ -169,7 +169,7 @@ class Config:
             error("Cannot open {} for reading: {}'", self, e)
 
     def write(self):
-        verbose("Writing {}", self)
+        status("Writing {}", self)
         if args.dry_run:
             return
         try:
@@ -290,9 +290,6 @@ class Repository:
         self.branch = None
         self.commit = None
 
-    def __str__(self):
-        return "{} '{}'".format(self.__class__.__name__, self.work_dir)
-
     def update_config_section(self, section):
         section["url"] = self.url
         section["vcs"] = self.vcs
@@ -352,6 +349,9 @@ class FileRepository(Repository):
         name = Repository.determine_name_from_url(url)
         Repository.__init__(self, work_dir, url, "file", name)
 
+    def __str__(self):
+        return "{} '{}'".format(self.__class__.__name__, self.work_dir)
+
     def register(self, path):
         pass
 
@@ -400,6 +400,9 @@ class GitRepository(Repository):
         self.ignore_file = os.path.join(work_dir, ".gitignore")
         self.quiet_flag = "--quiet" if args.quiet else None
 
+    def __str__(self):
+        return "{} '{}'".format(self.__class__.__name__, self.git_dir)
+        
     @staticmethod
     def is_present(work_dir):
         git_dir = os.path.join(work_dir, ".git")
@@ -463,7 +466,7 @@ class GitRepository(Repository):
         self.post_edit(self.ignore_file)            
 
     def remove_ignore(self, path):
-        verbose("Remove '{}' from ignore file '{}'", path, self.ignore_file)
+        verbose("Removing '{}' from ignore file '{}'", path, self.ignore_file)
         if args.dry_run:
             return
         if not os.path.exists(self.ignore_file):
