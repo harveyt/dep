@@ -458,7 +458,7 @@ class GitRepository(Repository):
         # TODO: With out vcs we might need register/pre_edit.
         try:
             with open(self.ignore_file, 'a') as f:
-                f.write('{}\n'.format(path))
+                f.write('/{}\n'.format(path))
         except IOError, e:
             error("Cannot open '{}' for writing: {}'", self.ignore_file, e)
         self.post_edit(self.ignore_file)            
@@ -476,7 +476,7 @@ class GitRepository(Repository):
         try:
             with open(self.ignore_file, 'w') as f:
                 for ignore in ignores:
-                    if ignore != path:
+                    if ignore != "/" + path:
                         f.write('{}\n'.format(ignore))
         except IOError, e:
             error("Cannot open '{}' for writing: {}'", self.ignore_file, e)
