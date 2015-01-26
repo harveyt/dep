@@ -695,11 +695,11 @@ class Component:
         self.debug_dump("record: ")
 
     def list(self):
-        if not self.config.exists():
-            return
-        self._read_state()
-        for c in self.children:
-            print c.name
+        if self.config.exists():
+            self._read_state()
+            for c in self.children:
+                print c.name
+        print self.name
 
     def status(self, show_files=False, show_branch=False):
         if not self.parent:
@@ -713,17 +713,17 @@ class Component:
             c.status(show_files, show_branch)
 
     def foreach(self, cmds):
+        if self.config.exists():
+            self._read_state()
+            for c in self.children:
+                c.foreach(cmds)
         status("##===================================================================================================")
         status("## {}:", self)
         old_quiet = args.quiet
         args.quiet = False
         run(*cmds, shell=True, cwd=self.work_dir)
         args.quiet = old_quiet
-        if not self.config.exists():
-            return
-        self._read_state()
-        for c in self.children:
-            c.foreach(cmds)
+
 
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
