@@ -564,18 +564,22 @@ class GitRepository(Repository):
 #
 class Component:
     def __init__(self, parent=None, url=None, section=None):
+        if (args.root or not args.local) and (parent is None and url is None and section is None):
+            cwd = Component.find_root_work_dir()
+        else:
+            cwd = Component.find_local_work_dir()
         if url:
             self.name = Repository.determine_name_from_url(url)
         elif section:
             self.name = section.subname
             url = section["url"]
         else:
-            self.name = Repository.determine_name_from_url(os.getcwd())
+            self.name = Repository.determine_name_from_url(cwd)
             # TODO: This flags to use file style url, fix so this is done here?
             url = None
         dep_dir = parent.config["core"]["default-dep-dir"] if parent else "dep"
         self.relpath = os.path.join(dep_dir, self.name)
-        self.work_dir = os.path.join(parent.work_dir, self.relpath) if parent else os.getcwd()
+        self.work_dir = os.path.join(parent.work_dir, self.relpath) if parent else cwd
         self.parent = parent
         self.children = []
         self.root = parent.root if parent else self
@@ -846,6 +850,10 @@ parser.add_argument("-v", "--verbose", action="store_true",
                     help="Show more verbose information, including commands executed")
 parser.add_argument("--dry-run", action="store_true",
                     help="Only show what actions and commands would be executed, make no changes")
+parser.add_argument("-r", "--root", action="store_true",
+                    help="Run from root dependency (default)")
+parser.add_argument("-l", "--local", action="store_true",
+                    help="Run as if local dependency is the root dependency")
 
 parser_help = subparsers.add_parser("help",
                                     help="Show general or specific command help",
