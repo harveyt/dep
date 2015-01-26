@@ -708,6 +708,19 @@ class Component:
         for c in self.children:
             c.status(show_files, show_branch)
 
+    def foreach(self, cmds):
+        status("##===================================================================================================")
+        status("## {}:", self)
+        old_quiet = args.quiet
+        args.quiet = False
+        run(*cmds, shell=True, cwd=self.work_dir)
+        args.quiet = old_quiet
+        if not self.config.exists():
+            return
+        self._read_state()
+        for c in self.children:
+            c.foreach(cmds)
+
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
             return
@@ -794,6 +807,29 @@ def command_status(args):
                 show_branch=(args.show_branch or args.show_short or args.show_long))
 
 # --------------------------------------------------------------------------------
+# Command: foreach
+#
+def command_foreach(args):
+    root = Component()
+    root.foreach(args.cmd)
+
+def command_pull(args):
+    root = Component()
+    root.foreach(["git", "pull"])
+
+def command_push(args):
+    root = Component()
+    root.foreach(["git", "push"])
+
+def command_fetch(args):
+    root = Component()
+    root.foreach(["git", "fetch"])
+
+def command_commit(args):
+    root = Component()
+    root.foreach(["git", "commit"])
+    
+# --------------------------------------------------------------------------------
 # Main
 #
 parser = argparse.ArgumentParser(description="Manages component based dependencies using version control systems (VCS).")
@@ -866,6 +902,33 @@ parser_status.add_argument("-f", "--files", dest="show_files", action="store_tru
 parser_status.add_argument("-b", "--branch", dest="show_branch", action="store_true",
                            help="Show the branch information for each dependency.")
 parser_status.set_defaults(func=command_status)
+
+parser_foreach = subparsers.add_parser("foreach",
+                                       help="Run a shell command for each dependency",
+                                       description="Run a shell command for each dependency.")
+parser_foreach.add_argument("cmd", action="append",
+                            help="The command to run for each dependency")
+parser_foreach.set_defaults(func=command_foreach)
+
+parser_pull = subparsers.add_parser("pull",
+                                     help="Pull changes for each dependency",
+                                     description="Pull changes for each dependency")
+parser_pull.set_defaults(func=command_pull)
+
+parser_push = subparsers.add_parser("push",
+                                     help="Push changes for each dependency",
+                                     description="Push changes for each dependency")
+parser_push.set_defaults(func=command_push)
+
+parser_fetch = subparsers.add_parser("fetch",
+                                     help="Fetch changes for each dependency",
+                                     description="Fetch changes for each dependency")
+parser_fetch.set_defaults(func=command_fetch)
+
+parser_commit = subparsers.add_parser("commit",
+                                      help="Commit changes for each dependency",
+                                      description="Commit changes for each dependency")
+parser_commit.set_defaults(func=command_commit)
 
 if len(sys.argv) == 1:
     parser.print_help()
