@@ -33,25 +33,23 @@ def error(fmt, *a):
     sys.stderr.write("dep: ")
     sys.stderr.write(fmt.format(*a))
     sys.stderr.write("\n")
-    exit(1)
+    sys.exit(1)
 
 def debug(fmt, *a):
-    if not args.debug or args.quiet:
+    if not args.debug:
         return
-    sys.stderr.write(fmt.format(*a))
-    sys.stderr.write("\n")
+    status(fmt, *a)
+
+def verbose(fmt, *a):
+    if not args.verbose:
+        return
+    status(fmt, *a)
 
 def status(fmt, *a):
     if args.quiet:
         return
-    sys.stderr.write(fmt.format(*a))
-    sys.stderr.write("\n")
-
-def verbose(fmt, *a):
-    if not args.verbose or args.quiet:
-        return
-    sys.stderr.write(fmt.format(*a))
-    sys.stderr.write("\n")
+    sys.stdout.write(fmt.format(*a))
+    sys.stdout.write("\n")
 
 def validate_file_exists(file):
     if not os.path.isfile(file):
@@ -568,6 +566,8 @@ class Component:
             cwd = Component.find_root_work_dir()
         else:
             cwd = Component.find_local_work_dir()
+        if cwd is None:
+            cwd = os.getcwd()
         if url:
             self.name = Repository.determine_name_from_url(url)
         elif section:
