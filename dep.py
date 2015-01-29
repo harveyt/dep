@@ -605,6 +605,7 @@ class BaseComponent:
         debug("{}parent = {}", prefix, str(self.parent))
         debug("{}root = {}", prefix, str(self.root))
         debug("{}children[] = {{", prefix)
+        self._debug_dump_content(prefix)
         for i, c in enumerate(self.children):
             if i > 0:
                 debug("{},".format(prefix))
@@ -614,7 +615,7 @@ class BaseComponent:
 # --------------------------------------------------------------------------------
 # Component
 #
-class Component:
+class Component(BaseComponent):
     def __init__(self, parent=None, url=None, section=None):
         if (args.root or not args.local) and (parent is None and url is None and section is None):
             cwd = find_root_work_dir()
@@ -623,22 +624,20 @@ class Component:
         if cwd is None:
             cwd = os.getcwd()
         if url:
-            self.name = Repository.determine_name_from_url(url)
+            name = Repository.determine_name_from_url(url)
         elif section:
-            self.name = section.subname
+            name = section.subname
             url = section["url"]
         else:
-            self.name = Repository.determine_name_from_url(cwd)
+            name = Repository.determine_name_from_url(cwd)
             # TODO: This flags to use file style url, fix so this is done here?
             url = None
         dep_dir = parent.config["core"]["default-dep-dir"] if parent else "dep"
-        self.relpath = os.path.join(dep_dir, self.name)
-        self.work_dir = os.path.join(parent.work_dir, self.relpath) if parent else cwd
-        self.parent = parent
-        self.children = []
-        self.root = parent.root if parent else self
-        if parent:
-            parent.children.append(self)
+        self.relpath = os.path.join(dep_dir, name)
+        work_dir = os.path.join(parent.work_dir, self.relpath) if parent else cwd
+
+        BaseComponent.__init__(self, name, work_dir, parent)
+        
         self.config = Config(os.path.join(self.work_dir, ".depconfig"))
         # TODO: Pass down name?
         self.repository = Repository.create(self.work_dir, url)
@@ -647,9 +646,6 @@ class Component:
             self.repository.branch = section["branch"]
             self.repository.commit = section["commit"]
         
-    def __str__(self):
-        return "Component '{}'".format(self.name)
-    
     def init(self):
         verbose("Initializing {}", self)
         validate_file_notexists(self.config.path)
@@ -753,24 +749,10 @@ class Component:
         run(*cmds, shell=True, cwd=self.work_dir)
         args.quiet = old_quiet
 
-
-    def debug_dump(self, prefix=""):
-        if not args.debug or args.quiet:
-            return
-        debug("{}--- {} ---", prefix, self)
-        debug("{}name = {}", prefix, self.name)
+    def _debug_dump_content(self, prefix=""):
         debug("{}relpath = {}", prefix, self.relpath)
-        debug("{}work_dir = {}", prefix, self.work_dir)        
-        debug("{}parent = {}", prefix, str(self.parent))
-        debug("{}root = {}", prefix, str(self.root))
         self.config.debug_dump(prefix)
         self.repository.debug_dump(prefix)
-        debug("{}children[] = {{", prefix)
-        for i, c in enumerate(self.children):
-            if i > 0:
-                debug("{},".format(prefix))
-            c.debug_dump("{}[{}] ".format(prefix, i))
-        debug("{}}}", prefix)            
 
 # --------------------------------------------------------------------------------
 # Command: help
