@@ -584,19 +584,33 @@ class GitRepository(Repository):
 # BaseComponent
 #
 class BaseComponent:
-    def __init__(self, name, relpath, parent):
+    def __init__(self, name, relpath, parent, url=None):
         self.name = name
         self.relpath = relpath
         self.work_dir = os.path.join(parent.work_dir, relpath) if parent else relpath
         self.parent = parent
         self.children = []
         self.root = parent.root if parent else self
+        self.config = Config(os.path.join(self.work_dir, ".depconfig"))
+        # TODO: Pass down name?            
+        self.repository = Repository.create(self.work_dir, url)
         if parent:
             parent.children.append(self)
 
     def __str__(self):
         return "{} '{}'".format(self.__class__.__name__, self.name)
-            
+
+    def has_config(self):
+        return self.config.exists()
+        
+    def read_config(self):
+        self.config.read()
+
+    def write_config(self):
+        self.repository.pre_edit(self.config.path)
+        self.config.write()
+        self.repository.post_edit(self.config.path)
+
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
             return
@@ -606,8 +620,10 @@ class BaseComponent:
         debug("{}work_dir = {}", prefix, self.work_dir)
         debug("{}parent = {}", prefix, str(self.parent))
         debug("{}root = {}", prefix, str(self.root))
-        debug("{}children[] = {{", prefix)
+        self.config.debug_dump(prefix)
+        self.repository.debug_dump(prefix)        
         self._debug_dump_content(prefix)
+        debug("{}children[] = {{", prefix)        
         for i, c in enumerate(self.children):
             if i > 0:
                 debug("{},".format(prefix))
@@ -619,24 +635,12 @@ class BaseComponent:
 #
 class Component(BaseComponent):
     def __init__(self, name, relpath, parent, url, section):
-        BaseComponent.__init__(self, name, relpath, parent)
-        self.config = Config(os.path.join(self.work_dir, ".depconfig"))
-        # TODO: Pass down name?            
-        self.repository = Repository.create(self.work_dir, url)
+        BaseComponent.__init__(self, name, relpath, parent, url)
         # TODO: Pass down section to do this?
         if section:
             self.repository.branch = section["branch"]
             self.repository.commit = section["commit"]
         
-    def init(self):
-        verbose("Initializing {}", self)
-        validate_file_notexists(self.config.path)
-        core = ConfigSection(self.config, "core")
-        ConfigVar(core, "default-dep-dir", "dep")
-        self.config.write()
-        self.repository.register(self.config.path)
-        self.debug_dump("post: ")
-
     def _add_to_config(self, config):
         section = ConfigSection(config, "dep", self.name)
         ConfigVar(section, "relpath", self.relpath)
@@ -647,7 +651,7 @@ class Component(BaseComponent):
             error("{} must have been initialized with a VCS", self)
 
     def _read_state(self):
-        self.config.read()
+        self.read_config()
         for s in self.config.sections_named("dep"):
             child = TopComponent(self, None, s)
 
@@ -663,11 +667,6 @@ class Component(BaseComponent):
             section = self.parent.config["dep." + self.name]
             self.repository.update_config_section(section)
 
-    def _write_state(self):
-        self.repository.pre_edit(self.config.path)
-        self.config.write()
-        self.repository.post_edit(self.config.path)
-
     def add_child(self, url):
         self._check_has_vcs()
         self._read_state()
@@ -677,12 +676,12 @@ class Component(BaseComponent):
         child._add_to_config(self.config)
         child._record_state()
         child.refresh()
-        self._write_state()
+        self.write_config()
         self.repository.add_ignore(child.relpath)
         self.debug_dump("add_child: ")
         
     def refresh(self):
-        if not self.config.exists():
+        if not self.has_config():
             return
         self._check_has_vcs()
         self._read_state()
@@ -698,11 +697,11 @@ class Component(BaseComponent):
         self.debug_dump("read: ")
         for c in self.children:
             c._record_state()
-        self._write_state()
+        self.write_config()
         self.debug_dump("record: ")
 
     def list(self):
-        if self.config.exists():
+        if self.has_config():
             self._read_state()
             for c in self.children:
                 print c.name
@@ -713,14 +712,14 @@ class Component(BaseComponent):
             status("M  Branch           Commit                                    Ahead Behind Path")
             status("-- ---------------  ---------------------------------------- ------ ------ -----------------------")
         self.repository.status_brief(self.relpath if self.parent else ".")
-        if not self.config.exists():
+        if not self.has_config():
             return
         self._read_state()
         for c in self.children:
             c.status(show_files, show_branch)
 
     def foreach(self, cmds):
-        if self.config.exists():
+        if self.has_config():
             self._read_state()
             for c in self.children:
                 c.foreach(cmds)
@@ -732,8 +731,7 @@ class Component(BaseComponent):
         args.quiet = old_quiet
 
     def _debug_dump_content(self, prefix=""):
-        self.config.debug_dump(prefix)
-        self.repository.debug_dump(prefix)
+        pass
 
 # --------------------------------------------------------------------------------
 # RootComponent
@@ -749,6 +747,14 @@ class RootComponent(Component):
         name = Repository.determine_name_from_url(cwd)
         Component.__init__(self, name, cwd, None, None, None)
 
+    def init(self):
+        verbose("Initializing {}", self)
+        validate_file_notexists(self.config.path)
+        core = ConfigSection(self.config, "core")
+        ConfigVar(core, "default-dep-dir", "dep")
+        self.write_config()
+        self.debug_dump("post: ")
+        
 # --------------------------------------------------------------------------------
 # TopComponent
 #
