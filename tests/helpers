@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 
 TESTS=$PWD
 ROOT=$PWD/..
