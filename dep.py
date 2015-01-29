@@ -618,31 +618,10 @@ class BaseComponent:
 # Component
 #
 class Component(BaseComponent):
-    def __init__(self, parent=None, url=None, section=None):
-        if (args.root or not args.local) and (parent is None and url is None and section is None):
-            cwd = find_root_work_dir()
-        else:
-            cwd = find_local_work_dir()
-        if cwd is None:
-            cwd = os.getcwd()
-        if url:
-            name = Repository.determine_name_from_url(url)
-        elif section:
-            name = section.subname
-            url = section["url"]
-        else:
-            name = Repository.determine_name_from_url(cwd)
-            # TODO: This flags to use file style url, fix so this is done here?
-            url = None
-        if parent:
-            dep_dir = parent.config["core"]["default-dep-dir"]
-            relpath = os.path.join(dep_dir, name)
-        else:
-            relpath = cwd
+    def __init__(self, name, relpath, parent, url, section):
         BaseComponent.__init__(self, name, relpath, parent)
-        
         self.config = Config(os.path.join(self.work_dir, ".depconfig"))
-        # TODO: Pass down name?
+        # TODO: Pass down name?            
         self.repository = Repository.create(self.work_dir, url)
         # TODO: Pass down section to do this?
         if section:
@@ -670,7 +649,7 @@ class Component(BaseComponent):
     def _read_state(self):
         self.config.read()
         for s in self.config.sections_named("dep"):
-            child = Component(parent=self, section=s)
+            child = TopComponent(self, None, s)
 
     def _refresh_state(self):
         self._check_has_vcs()
@@ -693,7 +672,7 @@ class Component(BaseComponent):
         self._check_has_vcs()
         self._read_state()
         self.debug_dump("read: ")
-        child = Component(parent=self, url=url)
+        child = TopComponent(self, url, None)
         child.repository.refresh()
         child._add_to_config(self.config)
         child._record_state()
@@ -753,10 +732,37 @@ class Component(BaseComponent):
         args.quiet = old_quiet
 
     def _debug_dump_content(self, prefix=""):
-        debug("{}relpath = {}", prefix, self.relpath)
         self.config.debug_dump(prefix)
         self.repository.debug_dump(prefix)
 
+# --------------------------------------------------------------------------------
+# RootComponent
+#
+class RootComponent(Component):
+    def __init__(self):
+        if args.root or not args.local:
+            cwd = find_root_work_dir()
+        else:
+            cwd = find_local_work_dir()
+        if cwd is None:
+            cwd = os.getcwd()
+        name = Repository.determine_name_from_url(cwd)
+        Component.__init__(self, name, cwd, None, None, None)
+
+# --------------------------------------------------------------------------------
+# TopComponent
+#
+class TopComponent(Component):
+    def __init__(self, parent, url, section):
+        if url:
+            name = Repository.determine_name_from_url(url)
+        elif section:
+            name = section.subname
+            url = section["url"]
+        dep_dir = parent.config["core"]["default-dep-dir"]
+        relpath = os.path.join(dep_dir, name)
+        Component.__init__(self, name, relpath, parent, url, section)
+        
 # --------------------------------------------------------------------------------
 # Command: help
 #
@@ -770,14 +776,14 @@ def command_help(args):
 # Command: init
 #
 def command_init(args):
-    root = Component()
+    root = RootComponent()
     root.init()
 
 # --------------------------------------------------------------------------------
 # Command: add
 #
 def command_add(args):
-    root = Component()
+    root = RootComponent()
     root.add_child(args.url)
 
 # --------------------------------------------------------------------------------
@@ -799,28 +805,28 @@ def command_config(args):
 # Command: refresh
 #
 def command_refresh(args):
-    root = Component()
+    root = RootComponent()
     root.refresh()
 
 # --------------------------------------------------------------------------------
 # Command: record
 #
 def command_record(args):
-    root = Component()
+    root = RootComponent()
     root.record()
 
 # --------------------------------------------------------------------------------
 # Command: list
 #
 def command_list(args):
-    root = Component()
+    root = RootComponent()
     root.list()
 
 # --------------------------------------------------------------------------------
 # Command: status
 #
 def command_status(args):
-    root = Component()
+    root = RootComponent()
     root.status(show_files=(args.show_files or args.show_long),
                 show_branch=(args.show_branch or args.show_short or args.show_long))
 
@@ -828,23 +834,23 @@ def command_status(args):
 # Command: foreach
 #
 def command_foreach(args):
-    root = Component()
+    root = RootComponent()
     root.foreach(args.cmd)
 
 def command_pull(args):
-    root = Component()
+    root = RootComponent()
     root.foreach(["git", "pull"])
 
 def command_push(args):
-    root = Component()
+    root = RootComponent()
     root.foreach(["git", "push"])
 
 def command_fetch(args):
-    root = Component()
+    root = RootComponent()
     root.foreach(["git", "fetch"])
 
 def command_commit(args):
-    root = Component()
+    root = RootComponent()
     root.foreach(["git", "commit"])
     
 # --------------------------------------------------------------------------------
