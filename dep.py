@@ -584,9 +584,10 @@ class GitRepository(Repository):
 # BaseComponent
 #
 class BaseComponent:
-    def __init__(self, name, work_dir, parent):
+    def __init__(self, name, relpath, parent):
         self.name = name
-        self.work_dir = work_dir
+        self.relpath = relpath
+        self.work_dir = os.path.join(parent.work_dir, relpath) if parent else relpath
         self.parent = parent
         self.children = []
         self.root = parent.root if parent else self
@@ -601,7 +602,8 @@ class BaseComponent:
             return
         debug("{}--- {} ---", prefix, self)
         debug("{}name = {}", prefix, self.name)
-        debug("{}work_dir = {}", prefix, self.work_dir)        
+        debug("{}relpath = {}", prefix, self.relpath)
+        debug("{}work_dir = {}", prefix, self.work_dir)
         debug("{}parent = {}", prefix, str(self.parent))
         debug("{}root = {}", prefix, str(self.root))
         debug("{}children[] = {{", prefix)
@@ -632,11 +634,12 @@ class Component(BaseComponent):
             name = Repository.determine_name_from_url(cwd)
             # TODO: This flags to use file style url, fix so this is done here?
             url = None
-        dep_dir = parent.config["core"]["default-dep-dir"] if parent else "dep"
-        self.relpath = os.path.join(dep_dir, name)
-        work_dir = os.path.join(parent.work_dir, self.relpath) if parent else cwd
-
-        BaseComponent.__init__(self, name, work_dir, parent)
+        if parent:
+            dep_dir = parent.config["core"]["default-dep-dir"]
+            relpath = os.path.join(dep_dir, name)
+        else:
+            relpath = cwd
+        BaseComponent.__init__(self, name, relpath, parent)
         
         self.config = Config(os.path.join(self.work_dir, ".depconfig"))
         # TODO: Pass down name?
