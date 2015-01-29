@@ -1,4 +1,4 @@
-#!/bin/bash
+!/bin/bash
 
 TESTS=$PWD
 ROOT=$PWD/..
@@ -92,13 +92,19 @@ test_file_exists()
     fi
 }
 
+test_resource_missing()
+{
+    local path="$1"
+    local type="$2"
+    test_echo "Test $type missing \"$path\""
+    if [[ -e "$path" ]]; then
+	test_fail "$type \"$path\" exists"
+    fi
+}
+
 test_file_missing()
 {
-    local file="$1"    
-    test_echo "Test file missing \"$file\""
-    if [[ -f "$file" ]]; then
-	test_fail "file \"$file\" exists"
-    fi
+    test_resource_missing "$1" "file"
 }
 
 test_file_contains()
@@ -125,13 +131,17 @@ test_dir_exists()
 
 test_dir_missing()
 {
-    local dir="$1"    
-    test_echo "Test dir missing \"$dir\""
-    if [[ -d "$dir" ]]; then
-	test_fail "dir \"$dir\" exists"
-    fi
+    test_resource_missing "$1" "dir"
 }
 
+test_realpath()
+{
+    local path="$1"
+    local dir=$(dirname "$path")
+    local file=$(basename "$path")
+    echo "$(cd "$dir"; pwd -P)/$file"
+}
+   
 test_symlink_exists()
 {
     local source="$1"
@@ -141,9 +151,19 @@ test_symlink_exists()
 	test_fail "symlink \"$source\" does not exist"
     fi
     actual_dest=$(readlink)
-    if [[ "$dest" != "$actual_dest" ]]; then
+    abs_dest=$(test_realpath "$dest")
+    abs_actual_dest=$(test_realpath "$actual_dest")    
+    if [[ "$abs_dest" != "$abs_actual_dest" ]]; then
+	test_echo "symlink \"$source\" -> \"$actual_dest\""
+	test_echo "symlink \"$source\" -> \"$abs_actual_dest\""
+	test_echo "expecting symlink \"$source\" -> \"$abs_dest\""
 	test_fail "symlink \"$source\" does point at \"$dest\""
     fi
+}
+
+test_symlink_missing()
+{
+    test_resource_missing "$1" "symlink"
 }
 
 test_repo_path()

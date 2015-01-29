@@ -2,9 +2,10 @@
 . helpers
 
 #
-# Build a two level dependency chain:
+# Build a two level dependency chain with shared dependency.
 #
 # ROOT -> A -> B
+# ROOT -> C -> B
 #
 test_git_create_repo ROOT
 ROOT_url=$(test_repo_url ROOT)
@@ -18,36 +19,54 @@ test_git_create_repo B
 B_url=$(test_repo_url B)
 B_path=$(test_repo_path B)
 
+test_git_create_repo C
+C_url=$(test_repo_url C)
+C_path=$(test_repo_path C)
+
 cd $A_path
 test_exec $DEP init
 test_exec $DEP add "$B_url"
 test_exec git commit -m "Add A -> B dependency."
 test_exec git push
 
+cd $C_path
+test_exec $DEP init
+test_exec $DEP add "$B_url"
+test_exec git commit -m "Add C -> B dependency."
+test_exec git push
+
 test_missing_layout()
 {
     test_git_work_dir_missing dep/A
     test_git_work_dir_missing dep/B
+    test_git_work_dir_missing dep/C
     test_file_missing dep/A/FILE-A
     test_file_missing dep/B/FILE-B
+    test_file_missing dep/C/FILE-C
     test_symlink_missing dep/A/dep/B dep/B
+    test_symlink_missing dep/C/dep/B dep/B
 }
 
 test_layout()
 {
     test_git_work_dir_exists dep/A
     test_git_work_dir_exists dep/B
+    test_git_work_dir_exists dep/C
     test_file_exists dep/A/FILE-A
     test_file_exists dep/B/FILE-B
+    test_file_exists dep/C/FILE-C
     test_symlink_exists dep/A/dep/B dep/B
+    test_symlink_exists dep/C/dep/B dep/B
 }
-    
+
 cd $ROOT_path
 test_exec $DEP init
 test_missing_layout
 test_exec $DEP add "$A_url"
-test_layout
 test_exec git commit -m "Add ROOT -> A dependency."
+test_exec $DEP add "$C_url"
+test_layout
+test_exec git commit -m "Add ROOT -> C dependency."
 test_exec git push
 
 cd $TMP_WORK
