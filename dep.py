@@ -589,11 +589,11 @@ class BaseComponent:
         self.relpath = relpath
         self.work_dir = os.path.join(parent.work_dir, relpath) if parent else relpath
         self.parent = parent
-        self.children = []
-        self.root = parent.root if parent else self
+        self.root = parent.root if parent else self        
         self.config = Config(os.path.join(self.work_dir, ".depconfig"))
         # TODO: Pass down name?            
         self.repository = Repository.create(self.work_dir, url)
+        self.children = []
         if parent:
             parent.children.append(self)
 
@@ -610,6 +610,43 @@ class BaseComponent:
         self.repository.pre_edit(self.config.path)
         self.config.write()
         self.repository.post_edit(self.config.path)
+
+    def add_to_parent_config(self):
+        section = ConfigSection(self.parent.config, "dep", self.name)
+        ConfigVar(section, "relpath", self.relpath)
+        self.repository.update_config_section(section)
+
+    def create_children(self):
+        for section in self.config.sections_named("dep"):
+            _create_from_config_section(self, section)
+        
+    @staticmethod
+    def _create_from_config_section(parent, section):
+        return TopComponent(parent, section=section)
+
+    def _build_dep_tree(self, refresh=False):
+        if not self.has_config():
+            return
+        self.read_config()
+        self.create_children()
+        for child in self.children:
+            if refresh:
+                child.repository.refresh()
+            child.read_dep_tree()
+
+    def read_dep_tree(self):
+        self._build_dep_tree(refresh=False)
+            
+    def refresh_dep_tree(self):
+        self._build_dep_tree(refresh=True)
+
+    def run_command(self, cmd)
+        status("##===================================================================================================")
+        status("## {}:", self)
+        old_quiet = args.quiet
+        args.quiet = False
+        run(*cmd, shell=True, cwd=self.work_dir)
+        args.quiet = old_quiet                    
 
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
@@ -640,60 +677,27 @@ class Component(BaseComponent):
         if section:
             self.repository.branch = section["branch"]
             self.repository.commit = section["commit"]
-        
-    def _add_to_config(self, config):
-        section = ConfigSection(config, "dep", self.name)
-        ConfigVar(section, "relpath", self.relpath)
-        self.repository.update_config_section(section)
-
-    def _check_has_vcs(self):
-        if self.repository is None or self.repository.vcs == "file":
-            error("{} must have been initialized with a VCS", self)
-
-    def _read_state(self):
-        self.read_config()
-        for s in self.config.sections_named("dep"):
-            child = TopComponent(self, None, s)
-
-    def _refresh_state(self):
-        self._check_has_vcs()
-        for c in self.children:
-            c.repository.refresh()
 
     def _record_state(self):
-        self._check_has_vcs()
         self.repository.record()
         if self.parent:
             section = self.parent.config["dep." + self.name]
             self.repository.update_config_section(section)
 
     def add_child(self, url):
-        self._check_has_vcs()
-        self._read_state()
+        self.read_dep_tree()
         self.debug_dump("read: ")
-        child = TopComponent(self, url, None)
+        child = TopComponent(self, url=url)
         child.repository.refresh()
-        child._add_to_config(self.config)
+        child.add_to_parent_config()
         child._record_state()
         child.refresh()
         self.write_config()
         self.repository.add_ignore(child.relpath)
         self.debug_dump("add_child: ")
         
-    def refresh(self):
-        if not self.has_config():
-            return
-        self._check_has_vcs()
-        self._read_state()
-        self.debug_dump("read: ")
-        self._refresh_state()
-        self.debug_dump("refresh: ")
-        for c in self.children:
-            c.refresh()
-
     def record(self):
-        self._check_has_vcs()
-        self._read_state()
+        self.read_dep_tree()
         self.debug_dump("read: ")
         for c in self.children:
             c._record_state()
@@ -702,7 +706,7 @@ class Component(BaseComponent):
 
     def list(self):
         if self.has_config():
-            self._read_state()
+            self.read_dep_tree()
             for c in self.children:
                 print c.name
         print self.name
@@ -714,21 +718,15 @@ class Component(BaseComponent):
         self.repository.status_brief(self.relpath if self.parent else ".")
         if not self.has_config():
             return
-        self._read_state()
+        self.read_dep_tree()
         for c in self.children:
             c.status(show_files, show_branch)
 
-    def foreach(self, cmds):
-        if self.has_config():
-            self._read_state()
-            for c in self.children:
-                c.foreach(cmds)
-        status("##===================================================================================================")
-        status("## {}:", self)
-        old_quiet = args.quiet
-        args.quiet = False
-        run(*cmds, shell=True, cwd=self.work_dir)
-        args.quiet = old_quiet
+    def foreach(self, cmd):
+        self.read_dep_tree()
+        for child in self.children:
+            child.foreach(cmd)
+        self.run_command(cmd)
 
     def _debug_dump_content(self, prefix=""):
         pass
@@ -754,17 +752,23 @@ class RootComponent(Component):
         ConfigVar(core, "default-dep-dir", "dep")
         self.write_config()
         self.debug_dump("post: ")
+
+    def refresh(self):
+        self.refresh_dep_tree()
+        self.debug_dump("refresh: ")
         
 # --------------------------------------------------------------------------------
 # TopComponent
 #
 class TopComponent(Component):
-    def __init__(self, parent, url, section):
+    def __init__(self, parent, url=None, section=None):
         if url:
             name = Repository.determine_name_from_url(url)
         elif section:
             name = section.subname
             url = section["url"]
+        else:
+            error("TopComponent needs either a url or section")
         dep_dir = parent.config["core"]["default-dep-dir"]
         relpath = os.path.join(dep_dir, name)
         Component.__init__(self, name, relpath, parent, url, section)
