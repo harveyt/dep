@@ -127,7 +127,30 @@ class Pipe:
         exit_status = self.process.wait()
         if exit_status != 0:
             error("{} returned exit code {}", self.cmd_text, exit_status)
-        
+
+def find_local_work_dir(path=None):
+    if path is None:
+        path = os.getcwd()
+    path.rstrip(os.path.sep)
+    while True:
+        config_path = os.path.join(path, ".depconfig")
+        if os.path.isfile(config_path):
+            return path
+        path = os.path.dirname(path)
+        if path == os.path.sep:
+                return None
+
+def find_root_work_dir(path=None):
+    last_work_dir = None
+    while True:
+        work_dir = find_local_work_dir(path)
+        if work_dir is None:
+            return last_work_dir
+        last_work_dir = work_dir
+        path = os.path.dirname(work_dir)
+        if path == os.path.sep:
+            return None
+            
 # --------------------------------------------------------------------------------
 # Configuration
 #
@@ -556,16 +579,47 @@ class GitRepository(Repository):
         behind = "?" if behind is None else behind
         branch = self._branch_name_from_ref(branch)
         status("{:1} {:16} {:41} {:>6} {:>6} {}", mod, branch, commit, ahead, behind, path)
+
+# --------------------------------------------------------------------------------
+# BaseComponent
+#
+class BaseComponent:
+    def __init__(self, name, work_dir, parent):
+        self.name = name
+        self.work_dir = work_dir
+        self.parent = parent
+        self.children = []
+        self.root = parent.root if parent else self
+        if parent:
+            parent.children.append(self)
+
+    def __str__(self):
+        return "{} '{}'".format(self.__class__.__name__, self.name)
             
+    def debug_dump(self, prefix=""):
+        if not args.debug or args.quiet:
+            return
+        debug("{}--- {} ---", prefix, self)
+        debug("{}name = {}", prefix, self.name)
+        debug("{}work_dir = {}", prefix, self.work_dir)        
+        debug("{}parent = {}", prefix, str(self.parent))
+        debug("{}root = {}", prefix, str(self.root))
+        debug("{}children[] = {{", prefix)
+        for i, c in enumerate(self.children):
+            if i > 0:
+                debug("{},".format(prefix))
+            c.debug_dump("{}[{}] ".format(prefix, i))
+        debug("{}}}", prefix)
+
 # --------------------------------------------------------------------------------
 # Component
 #
 class Component:
     def __init__(self, parent=None, url=None, section=None):
         if (args.root or not args.local) and (parent is None and url is None and section is None):
-            cwd = Component.find_root_work_dir()
+            cwd = find_root_work_dir()
         else:
-            cwd = Component.find_local_work_dir()
+            cwd = find_local_work_dir()
         if cwd is None:
             cwd = os.getcwd()
         if url:
@@ -595,31 +649,6 @@ class Component:
         
     def __str__(self):
         return "Component '{}'".format(self.name)
-
-    @staticmethod
-    def find_local_work_dir(path=None):
-        if path is None:
-            path = os.getcwd()
-        path.rstrip(os.path.sep)
-        while True:
-            config_path = os.path.join(path, ".depconfig")
-            if os.path.isfile(config_path):
-                return path
-            path = os.path.dirname(path)
-            if path == os.path.sep:
-                return None
-
-    @staticmethod
-    def find_root_work_dir(path=None):
-        last_work_dir = None
-        while True:
-            work_dir = Component.find_local_work_dir(path)
-            if work_dir is None:
-                return last_work_dir
-            last_work_dir = work_dir
-            path = os.path.dirname(work_dir)
-            if path == os.path.sep:
-                return None
     
     def init(self):
         verbose("Initializing {}", self)
@@ -771,12 +800,12 @@ def command_add(args):
 #
 def command_config(args):
     if args.work_dir:
-        path = Component.find_local_work_dir()
+        path = find_local_work_dir()
         if path is None:
             error("Cannot determine local working directory")
         print path
     if args.root_work_dir:
-        path = Component.find_root_work_dir()
+        path = find_root_work_dir()
         if path is None:
             error("Cannot determine root working directory")
         print path
