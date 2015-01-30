@@ -339,7 +339,7 @@ class Repository:
         self.branch = None
         self.commit = None
 
-    def write_to_config_section(self, section):
+    def write_state_to_config_section(self, section):
         section["url"] = self.url
         section["vcs"] = self.vcs
         if self.branch:
@@ -347,7 +347,7 @@ class Repository:
         if self.commit:
             section["commit"] = self.commit
 
-    def read_from_config_section(self, section):
+    def read_state_from_config_section(self, section):
         self.branch = section["branch"] if section.has_key("branch") else None
         self.commit = section["commit"] if section.has_key("commit") else None
         
@@ -630,7 +630,7 @@ class DAGComponent:
     def __str__(self):
         return "{} '{}'".format(self.__class__.__name__, self.name)
 
-    def _debug_dump_content(prefix):
+    def _debug_dump_content(self, prefix):
         pass
 
     def debug_dump(self, prefix=""):
@@ -681,14 +681,73 @@ class FlatDAGComponent(DAGComponent):
             self._add_unique_children(child.flat_children)
         self._add_unique_children(self.children)
 
-    def _debug_dump_content(prefix):
+    def _debug_dump_content(self, prefix):
         debug("{}flat_children = {{", prefix, self.name)
         for i, c in enumerate(self.children):
             if i > 0:
                 debug("{},".format(prefix))
             c.debug_dump("{}[{}] ".format(prefix, i))
         debug("{}}}", prefix)
+
+# --------------------------------------------------------------------------------
+# RealComponent
+# Models a "real" component with a physical location, config and repository.
+#
+class RealComponent(FlatDAGComponent):
+    def __init__(self, name, path, parent, url=None):
+        FlatDAGComponent.__init__(name, path, parent)
+        self._parent_section = None
+        self.config = Config(os.path.join(self.abs_path, ".depconfig"))
+        self.repository = Repository.create(self.abs_path, url)
+
+    @property
+    def parent_section(self):
+        if self._parent_section is None:
+            self._rebuild_parent_section()
+        return self._parent_section
+
+    def _rebuild_parent_section(self):
+        if self.parent is None:
+            return
+        if not self.parent.config.has_section("dep", self.name):
+            return
+        self.parent_section = self.parent.config["dep.{}".format(self.name)]
         
+    def _read_repository_state_from_config(self):
+        if self.parent_section is None:
+            return
+        self.repository.read_state_from_config_section(self.parent_section)
+
+    def _has_config(self):
+        return self.config.exists()
+        
+    def _read_config(self):
+        if self.config.need_read:
+            self.config.read()
+            self._read_repository_state_from_config()
+
+    def _write_config(self):
+        if self.config.need_write:
+            self.repository.pre_edit(self.config.path)
+            self.config.write()
+            self.repository.post_edit(self.config.path)
+
+    def _add_to_parent_config(self):
+        self._parent_section = self.parent.config.add_section("dep", self.name)
+        self.parent_section["relpath"] = self.rel_path
+        self.repository.write_state_to_config_section(self.parent_section)
+
+    def _record_to_parent_config(self):
+        if self.parent_section:
+            self.repository.record()            
+            self.repository.write_state_to_config_section(self.parent_section)
+            
+    def _debug_dump_content(self, prefix):
+        debug("{}parent_section = {}", prefix, self.parent_section)
+        self.config.debug_dump(prefix)
+        self.repository.debug_dump(prefix)        
+        FlatDAGComponent._debug_dump_content(prefix)
+            
 # --------------------------------------------------------------------------------
 # Component
 #
@@ -704,7 +763,7 @@ class Component:
         # TODO: Pass down name?            
         self.repository = Repository.create(self.work_dir, url)
         if self.parent_section:
-            self.repository.read_from_config_section(self.parent_section)        
+            self.repository.read_state_from_config_section(self.parent_section)        
         self.children = []
         if parent:
             parent.children.append(self)
@@ -727,12 +786,12 @@ class Component:
     def _add_to_parent_config(self):
         self.parent_section = self.parent.config.add_section("dep", self.name)
         self.parent_section["relpath"] = self.relpath
-        self.repository.write_to_config_section(self.parent_section)
+        self.repository.write_state_to_config_section(self.parent_section)
 
     def _record_to_parent_config(self):
         if self.parent_section:
             self.repository.record()            
-            self.repository.write_to_config_section(self.parent_section)
+            self.repository.write_state_to_config_section(self.parent_section)
 
     def _create_children(self):
         self.children = []
