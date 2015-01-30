@@ -690,12 +690,85 @@ class FlatDAGComponent(DAGComponent):
         debug("{}}}", prefix)
 
 # --------------------------------------------------------------------------------
+# Component
+# Models any component that appears in the dependency tree:
+#
+# * RealComponent - real physical components
+#   * RootComponent - the root component
+#   * TopComponent - top-level components under the root component
+# * LinkComponent - all other level components which are links to a RealComponent
+#
+class Component(FlatDAGComponent):
+    def __init__(self, name, path, parent):
+        FlatDAGComponent.__init__(name, path, parent)
+
+    def read_dep_tree(self):
+        self.debug_dump("read_dep_tree pre: ")
+        self._read_dep_tree_recurse()
+        self.debug_dump("read_dep_tree post: ")        
+
+    def _read_dep_tree_create_children():
+        pass
+    
+    def _read_dep_tree_recurse(self):
+        self._read_dep_tree_create_children()
+        for child in self.children:
+            child._read_dep_tree_recurse()
+
+    def refresh_dep_tree(self):
+        self.debug_dump("refresh_dep_tree pre: ")
+        self._refresh_dep_tree_recurse()
+        self.debug_dump("refresh_dep_tree post: ")
+
+    def _refresh_dep_tree_create_children():
+        pass
+
+    def _refresh_dep_tree_recurse(self):
+        self._refresh_dep_tree_create_children()
+        for child in self.children:
+            child._refresh_dep_tree_recurse()
+
+    def record_dep_tree(self):
+        for child in self.children:
+            child._record_dep_tree_recurse()
+        self._record_dep_tree_to_config()
+
+    def record_dep_tree(self):
+        self.debug_dump("record_dep_tree pre: ")
+        self._record_dep_tree_recurse()
+        self.debug_dump("record_dep_tree post: ")
+
+    def _record_dep_tree_to_config():
+        pass
+        
+    def _record_dep_tree_recurse(self):
+        for child in self.children:
+            child._record_dep_tree_recurse()
+        self._record_dep_tree_to_config()
+        
+    def write_dep_tree(self):
+        self.debug_dump("write_dep_tree pre: ")
+        self._write_dep_tree_recurse()
+        self.debug_dump("write_dep_tree post: ")
+
+    def _write_dep_tree_config():
+        pass
+        
+    def _write_dep_tree_recurse(self):
+        for child in self.children:
+            child._write_dep_tree_recurse()
+        self._write_dep_tree_config()
+        
+    def _debug_dump_content(self, prefix):
+        FlatDAGComponent._debug_dump_content(prefix)
+        
+# --------------------------------------------------------------------------------
 # RealComponent
 # Models a "real" component with a physical location, config and repository.
 #
-class RealComponent(FlatDAGComponent):
+class RealComponent(Component):
     def __init__(self, name, path, parent, url=None):
-        FlatDAGComponent.__init__(name, path, parent)
+        Component.__init__(name, path, parent)
         self._parent_section = None
         self.config = Config(os.path.join(self.abs_path, ".depconfig"))
         self.repository = Repository.create(self.abs_path, url)
@@ -746,7 +819,7 @@ class RealComponent(FlatDAGComponent):
         debug("{}parent_section = {}", prefix, self.parent_section)
         self.config.debug_dump(prefix)
         self.repository.debug_dump(prefix)        
-        FlatDAGComponent._debug_dump_content(prefix)
+        Component._debug_dump_content(prefix)
             
 # --------------------------------------------------------------------------------
 # Component
