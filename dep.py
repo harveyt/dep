@@ -607,9 +607,9 @@ class GitRepository(Repository):
         status("{:1} {:16} {:41} {:>6} {:>6} {}", mod, branch, commit, ahead, behind, path)
 
 # --------------------------------------------------------------------------------
-# BaseComponent
+# Component
 #
-class BaseComponent:
+class Component:
     def __init__(self, name, relpath, parent, url=None, parent_section=None):
         self.name = name
         self.relpath = relpath
@@ -654,11 +654,15 @@ class BaseComponent:
     def _create_children(self):
         self.children = []
         for section in self.config.sections_named("dep"):
-            _create_from_config_section(self, section)
+            Component._create_from_config_section(self, section)
         
     @staticmethod
     def _create_from_config_section(parent, section):
         return TopComponent(parent, section=section)
+
+    @staticmethod
+    def _create_from_url(parent, url):
+        return TopComponent(parent, url=url)
 
     def _build_dep_tree(self, refresh=False):
         if not self._has_config():
@@ -688,13 +692,34 @@ class BaseComponent:
             child.write_dep_tree()
         self._write_config()
 
+    def add_child(self, url):
+        child = Component._create_from_url(self, url)
+        child._add_to_parent_config()
+        self.repository.add_ignore(child.relpath)
+        self.record_dep_tree()
+        self.write_dep_tree_config()
+
+    def status_header(self):
+        status("M  Branch           Commit                                    Ahead Behind Path")
+        status("-- ---------------  ---------------------------------------- ------ ------ -----------------------")
+        
+    def status(self, show_files, show_branch):
+        self.repository.status_brief(self.relpath if self.parent else ".")
+        for c in self.children:
+            c.status(show_files, show_branch)
+        
     def run_command(self, cmd)
         status("##===================================================================================================")
         status("## {}:", self)
         old_quiet = args.quiet
         args.quiet = False
         run(*cmd, shell=True, cwd=self.work_dir)
-        args.quiet = old_quiet                    
+        args.quiet = old_quiet
+        
+    def foreach(self, cmd):
+        for child in self.children:
+            child.foreach(cmd)
+        self.run_command(cmd)
 
     def debug_dump(self, prefix=""):
         if not args.debug or args.quiet:
@@ -717,52 +742,6 @@ class BaseComponent:
         debug("{}}}", prefix)
 
 # --------------------------------------------------------------------------------
-# Component
-#
-class Component(BaseComponent):
-    def __init__(self, name, relpath, parent, url, section):
-        BaseComponent.__init__(self, name, relpath, parent, url)
-
-    def add_child(self, url):
-        self.read_dep_tree()
-        self.debug_dump("read: ")
-        child = TopComponent(self, url=url)
-        child.repository.refresh()
-        child._add_to_parent_config()
-        child._record_to_parent_config()
-        child.refresh()
-        self._write_config()
-        self.repository.add_ignore(child.relpath)
-        self.debug_dump("add_child: ")
-        
-    def list(self):
-        if self._has_config():
-            self.read_dep_tree()
-            for c in self.children:
-                print c.name
-        print self.name
-
-    def status(self, show_files=False, show_branch=False):
-        if not self.parent:
-            status("M  Branch           Commit                                    Ahead Behind Path")
-            status("-- ---------------  ---------------------------------------- ------ ------ -----------------------")
-        self.repository.status_brief(self.relpath if self.parent else ".")
-        if not self._has_config():
-            return
-        self.read_dep_tree()
-        for c in self.children:
-            c.status(show_files, show_branch)
-
-    def foreach(self, cmd):
-        self.read_dep_tree()
-        for child in self.children:
-            child.foreach(cmd)
-        self.run_command(cmd)
-
-    def _debug_dump_content(self, prefix=""):
-        pass
-
-# --------------------------------------------------------------------------------
 # RootComponent
 #
 class RootComponent(Component):
@@ -776,7 +755,7 @@ class RootComponent(Component):
         name = Repository.determine_name_from_url(cwd)
         Component.__init__(self, name, cwd, None, None, None)
 
-    def init(self):
+    def command_init(self):
         verbose("Initializing {}", self)
         validate_file_notexists(self.config.path)
         core = self.config.add_section("core")
@@ -784,16 +763,40 @@ class RootComponent(Component):
         self._write_config()
         self.debug_dump("post: ")
 
-    def record(self):
+    def command_add(self, url):
+        self.read_dep_tree()
+        self.debug_dump("read: ")
+        self.add_child(url)
+        self.debug_dump("post_child: ")
+
+    def command_refresh(self):
+        self.refresh_dep_tree()
+        self.debug_dump("refresh: ")
+        
+    def command_record(self):
         self.read_dep_tree()
         self.debug_dump("read: ")
         self.record_dep_tree()
         self.write_dep_tree_config()
         self.debug_dump("record: ")
-        
-    def refresh(self):
-        self.refresh_dep_tree()
-        self.debug_dump("refresh: ")
+
+    def command_list(self):
+        self.read_dep_tree()
+        self.debug_dump("read: ")
+        for c in self.children:
+            print c.name
+        print self.name
+
+    def command_status(self, show_files=False, show_branch=False):
+        self.read_dep_tree()
+        self.debug_dump("read: ")        
+        self.status_header()
+        self.status(show_files, show_branch)
+
+    def command_foreach(self, cmd):
+        self.read_dep_tree()
+        self.debug_dump("read: ")
+        self.foreach(cmd)
         
 # --------------------------------------------------------------------------------
 # TopComponent
@@ -825,14 +828,14 @@ def command_help(args):
 #
 def command_init(args):
     root = RootComponent()
-    root.init()
+    root.command_init()
 
 # --------------------------------------------------------------------------------
 # Command: add
 #
 def command_add(args):
     root = RootComponent()
-    root.add_child(args.url)
+    root.command_add(args.url)
 
 # --------------------------------------------------------------------------------
 # Command: config
@@ -854,52 +857,52 @@ def command_config(args):
 #
 def command_refresh(args):
     root = RootComponent()
-    root.refresh()
+    root.command_refresh()
 
 # --------------------------------------------------------------------------------
 # Command: record
 #
 def command_record(args):
     root = RootComponent()
-    root.record()
+    root.command_record()
 
 # --------------------------------------------------------------------------------
 # Command: list
 #
 def command_list(args):
     root = RootComponent()
-    root.list()
+    root.command_list()
 
 # --------------------------------------------------------------------------------
 # Command: status
 #
 def command_status(args):
     root = RootComponent()
-    root.status(show_files=(args.show_files or args.show_long),
-                show_branch=(args.show_branch or args.show_short or args.show_long))
+    root.command_status(show_files=(args.show_files or args.show_long),
+                        show_branch=(args.show_branch or args.show_short or args.show_long))
 
 # --------------------------------------------------------------------------------
 # Command: foreach
 #
 def command_foreach(args):
     root = RootComponent()
-    root.foreach(args.cmd)
+    root.command_foreach(args.cmd)
 
 def command_pull(args):
     root = RootComponent()
-    root.foreach(["git", "pull"])
+    root.command_foreach(["git", "pull"])
 
 def command_push(args):
     root = RootComponent()
-    root.foreach(["git", "push"])
+    root.command_foreach(["git", "push"])
 
 def command_fetch(args):
     root = RootComponent()
-    root.foreach(["git", "fetch"])
+    root.command_foreach(["git", "fetch"])
 
 def command_commit(args):
     root = RootComponent()
-    root.foreach(["git", "commit"])
+    root.command_foreach(["git", "commit"])
     
 # --------------------------------------------------------------------------------
 # Main
