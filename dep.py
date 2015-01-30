@@ -158,6 +158,8 @@ class Config:
     def __init__(self, path):
         self.path = path
         self.sections = []
+        self.need_read = True
+        self.need_write = False
 
     def __str__(self):
         return "Config '{}'".format(self.path)
@@ -166,6 +168,8 @@ class Config:
         return os.path.exists(self.path)
     
     def read(self):
+        if not self.need_read:
+            return
         verbose("Reading {}", self)
         self.sections = []
         try:
@@ -186,17 +190,22 @@ class Config:
                     if v:
                         continue
                     error("{}, line {} cannot be parsed:\n>>> {}", self, lineno, line)
+            self.need_read = False            
         except IOError, e:
             error("Cannot open {} for reading: {}'", self, e)
 
     def write(self):
+        if not self.need_write:
+            return
         status("Writing {}", self)
         if args.dry_run:
+            self.need_write = False
             return
         try:
             with open(self.path, 'w') as handle:
                 for b in self.sections:
                     b.write(handle)
+            self.need_write = False
         except IOError, e:
             error("Cannot open {} for writing: {}'", self, e)
 
@@ -205,6 +214,10 @@ class Config:
             if s.fullname == key:
                 return s
         raise KeyError("Unknown section '{}' in {}".format(key, self))
+
+    def add_section(self, name, subname=None):
+        self.need_write = True        
+        return ConfigSection(self, name, subname)
 
     def sections_named(self, name):
         for b in self.sections:
@@ -215,6 +228,8 @@ class Config:
         if not args.debug or args.quiet:
             return
         debug("{}--- {} ---", prefix, self)
+        debug("{}need_read = {}", prefix, self.need_read)
+        debug("{}need_write = {}", prefix, self.need_write)
         for s in self.sections:
             s.debug_dump(prefix)
     
@@ -260,6 +275,7 @@ class ConfigSection:
         raise KeyError("Unknown variable '{}.{}' in {}".format(self.fullname, key, self.config))
 
     def __setitem__(self, key, value):
+        self.config.need_write = True
         for v in self.vars:
             if v.name == key:
                 v.value = value
@@ -612,8 +628,8 @@ class BaseComponent:
         self.repository.post_edit(self.config.path)
 
     def add_to_parent_config(self):
-        section = ConfigSection(self.parent.config, "dep", self.name)
-        ConfigVar(section, "relpath", self.relpath)
+        section = self.parent.config.add_section("dep", self.name)
+        section["relpath"] = self.relpath
         self.repository.update_config_section(section)
 
     def create_children(self):
@@ -748,8 +764,8 @@ class RootComponent(Component):
     def init(self):
         verbose("Initializing {}", self)
         validate_file_notexists(self.config.path)
-        core = ConfigSection(self.config, "core")
-        ConfigVar(core, "default-dep-dir", "dep")
+        core = self.config.add_section("core")
+        core["default-dep-dir"] = "dep"
         self.write_config()
         self.debug_dump("post: ")
 
