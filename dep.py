@@ -676,6 +676,11 @@ class Component:
                 child.repository.refresh()
             child._build_dep_tree(refresh=refresh)
 
+    def init_config(self):
+        core = self.config.add_section("core")
+        core["default-dep-dir"] = "dep"
+        self._write_config()
+        
     def read_dep_tree(self):
         self._build_dep_tree(refresh=False)
             
@@ -755,49 +760,6 @@ class RootComponent(Component):
         name = Repository.determine_name_from_url(cwd)
         Component.__init__(self, name, cwd, None, None, None)
 
-    def command_init(self):
-        verbose("Initializing {}", self)
-        validate_file_notexists(self.config.path)
-        core = self.config.add_section("core")
-        core["default-dep-dir"] = "dep"
-        self._write_config()
-        self.debug_dump("post: ")
-
-    def command_add(self, url):
-        self.read_dep_tree()
-        self.debug_dump("read: ")
-        self.add_child(url)
-        self.debug_dump("post_child: ")
-
-    def command_refresh(self):
-        self.refresh_dep_tree()
-        self.debug_dump("refresh: ")
-        
-    def command_record(self):
-        self.read_dep_tree()
-        self.debug_dump("read: ")
-        self.record_dep_tree()
-        self.write_dep_tree_config()
-        self.debug_dump("record: ")
-
-    def command_list(self):
-        self.read_dep_tree()
-        self.debug_dump("read: ")
-        for c in self.children:
-            print c.name
-        print self.name
-
-    def command_status(self, show_files=False, show_branch=False):
-        self.read_dep_tree()
-        self.debug_dump("read: ")        
-        self.status_header()
-        self.status(show_files, show_branch)
-
-    def command_foreach(self, cmd):
-        self.read_dep_tree()
-        self.debug_dump("read: ")
-        self.foreach(cmd)
-        
 # --------------------------------------------------------------------------------
 # TopComponent
 #
@@ -813,99 +775,9 @@ class TopComponent(Component):
         dep_dir = parent.config["core"]["default-dep-dir"]
         relpath = os.path.join(dep_dir, name)
         Component.__init__(self, name, relpath, parent, url, section)
-        
-# --------------------------------------------------------------------------------
-# Command: help
-#
-def command_help(args):
-    if args.command:
-        parser.parse_args([args.command, "--help"])
-    else:
-        parser.print_help()
 
 # --------------------------------------------------------------------------------
-# Command: init
-#
-def command_init(args):
-    root = RootComponent()
-    root.command_init()
-
-# --------------------------------------------------------------------------------
-# Command: add
-#
-def command_add(args):
-    root = RootComponent()
-    root.command_add(args.url)
-
-# --------------------------------------------------------------------------------
-# Command: config
-#
-def command_config(args):
-    if args.work_dir:
-        path = find_local_work_dir()
-        if path is None:
-            error("Cannot determine local working directory")
-        print path
-    if args.root_work_dir:
-        path = find_root_work_dir()
-        if path is None:
-            error("Cannot determine root working directory")
-        print path
-
-# --------------------------------------------------------------------------------
-# Command: refresh
-#
-def command_refresh(args):
-    root = RootComponent()
-    root.command_refresh()
-
-# --------------------------------------------------------------------------------
-# Command: record
-#
-def command_record(args):
-    root = RootComponent()
-    root.command_record()
-
-# --------------------------------------------------------------------------------
-# Command: list
-#
-def command_list(args):
-    root = RootComponent()
-    root.command_list()
-
-# --------------------------------------------------------------------------------
-# Command: status
-#
-def command_status(args):
-    root = RootComponent()
-    root.command_status(show_files=(args.show_files or args.show_long),
-                        show_branch=(args.show_branch or args.show_short or args.show_long))
-
-# --------------------------------------------------------------------------------
-# Command: foreach
-#
-def command_foreach(args):
-    root = RootComponent()
-    root.command_foreach(args.cmd)
-
-def command_pull(args):
-    root = RootComponent()
-    root.command_foreach(["git", "pull"])
-
-def command_push(args):
-    root = RootComponent()
-    root.command_foreach(["git", "push"])
-
-def command_fetch(args):
-    root = RootComponent()
-    root.command_foreach(["git", "fetch"])
-
-def command_commit(args):
-    root = RootComponent()
-    root.command_foreach(["git", "commit"])
-    
-# --------------------------------------------------------------------------------
-# Main
+# Main Arguments
 #
 parser = argparse.ArgumentParser(description="Manages component based dependencies using version control systems (VCS).")
 
@@ -926,17 +798,39 @@ parser.add_argument("-r", "--root", action="store_true",
 parser.add_argument("-l", "--local", action="store_true",
                     help="Run as if local dependency is the root dependency")
 
+# --------------------------------------------------------------------------------
+# Command: help
+#
 parser_help = subparsers.add_parser("help",
                                     help="Show general or specific command help",
                                     description="Without any arguments display short help for all commands. With a specified 'command' argument show more specific help for the given command.")
 parser_help.add_argument("command", nargs="?")
 parser_help.set_defaults(func=command_help)
 
+def command_help(args):
+    if args.command:
+        parser.parse_args([args.command, "--help"])
+    else:
+        parser.print_help()
+
+# --------------------------------------------------------------------------------
+# Command: init
+#
 parser_init = subparsers.add_parser("init",
                                     help="Initialise dependency system for this component",
                                     description="Initialise dependency system for this component.")
 parser_init.set_defaults(func=command_init)
 
+def command_init(args):
+    root = RootComponent()
+    verbose("Initializing {}", root)
+    validate_file_notexists(root.config.path)    
+    root.init_config()
+    self.debug_dump("post: ")
+
+# --------------------------------------------------------------------------------
+# Command: add
+#   
 parser_add = subparsers.add_parser("add",
                                    help="Add a new dependency to this component",
                                    description="Add a new dependency to this component.")
@@ -944,6 +838,16 @@ parser_add.add_argument("url",
                         help="The URL of the dependant component's VCS repository")
 parser_add.set_defaults(func=command_add)
 
+def command_add(args):
+    root = RootComponent()
+    root.read_dep_tree()
+    root.debug_dump("read: ")
+    root.add_child(url)
+    root.debug_dump("post_child: ")
+
+# --------------------------------------------------------------------------------
+# Command: config
+#
 parser_config = subparsers.add_parser("config",
                                       help="Dependency configuration",
                                       description="Dependency configuration.")
@@ -953,21 +857,66 @@ parser_config.add_argument("--root-work-dir", action="store_true",
                            help="Show the working directory of the root dependency and exit")
 parser_config.set_defaults(func=command_config)
 
+def command_config(args):
+    if args.work_dir:
+        path = find_local_work_dir()
+        if path is None:
+            error("Cannot determine local working directory")
+        print path
+    if args.root_work_dir:
+        path = find_root_work_dir()
+        if path is None:
+            error("Cannot determine root working directory")
+        print path
+
+# --------------------------------------------------------------------------------
+# Command: refresh
+#
 parser_refresh = subparsers.add_parser("refresh",
                                    help="Refresh dependencies from their source repositories",
                                    description="Refresh dependencies from their source repositories.")
 parser_refresh.set_defaults(func=command_refresh)
 
+def command_refresh(args):
+    root = RootComponent()
+    root.refresh_dep_tree()
+    root.debug_dump("refresh: ")
+
+# --------------------------------------------------------------------------------
+# Command: record
+#
 parser_record = subparsers.add_parser("record",
                                    help="Record dependencies from current source repository state",
                                    description="Record dependencies from current source repository state.")
 parser_record.set_defaults(func=command_record)
 
+def command_record(args):
+    root = RootComponent()
+    root.read_dep_tree()
+    root.debug_dump("read: ")
+    root.record_dep_tree()
+    root.write_dep_tree_config()
+    root.debug_dump("record: ")
+
+# --------------------------------------------------------------------------------
+# Command: list
+#
 parser_list = subparsers.add_parser("list",
                                    help="List dependencies",
                                    description="List dependencies.")
 parser_list.set_defaults(func=command_list)
 
+def command_list(args):
+    root = RootComponent()
+    root.read_dep_tree()
+    root.debug_dump("read: ")
+    for c in root.children:
+        print c.name
+    print root.name
+
+# --------------------------------------------------------------------------------
+# Command: status
+#
 parser_status = subparsers.add_parser("status",
                                       help="Show dependency status for all source repositories",
                                       description="Show dependency status for all source repositories.")
@@ -982,6 +931,18 @@ parser_status.add_argument("-b", "--branch", dest="show_branch", action="store_t
                            help="Show the branch information for each dependency.")
 parser_status.set_defaults(func=command_status)
 
+def command_status(args):
+    root = RootComponent()
+    show_files=(args.show_files or args.show_long)
+    show_branch=(args.show_branch or args.show_short or args.show_long)
+    root.read_dep_tree()
+    root.debug_dump("read: ")        
+    root.status_header()
+    root.status(show_files, show_branch)
+
+# --------------------------------------------------------------------------------
+# Command: foreach
+#
 parser_foreach = subparsers.add_parser("foreach",
                                        help="Run a shell command for each dependency",
                                        description="Run a shell command for each dependency.")
@@ -989,26 +950,63 @@ parser_foreach.add_argument("cmd", action="append",
                             help="The command to run for each dependency")
 parser_foreach.set_defaults(func=command_foreach)
 
+def command_foreach(args):
+    root = RootComponent()
+    root.read_dep_tree()
+    root.debug_dump("read: ")
+    root.foreach(args.cmd)
+
+# --------------------------------------------------------------------------------
+# Command: pull
+#
 parser_pull = subparsers.add_parser("pull",
                                      help="Pull changes for each dependency",
                                      description="Pull changes for each dependency")
 parser_pull.set_defaults(func=command_pull)
 
+def command_pull(args):
+    args.cmd = ["git", "pull"]
+    command_foreach(args)
+
+# --------------------------------------------------------------------------------
+# Command: push
+#
 parser_push = subparsers.add_parser("push",
                                      help="Push changes for each dependency",
                                      description="Push changes for each dependency")
 parser_push.set_defaults(func=command_push)
 
+def command_push(args):
+    args.cmd = ["git", "push"]
+    command_foreach(args)
+
+# --------------------------------------------------------------------------------
+# Command: fetch
+#
 parser_fetch = subparsers.add_parser("fetch",
                                      help="Fetch changes for each dependency",
                                      description="Fetch changes for each dependency")
 parser_fetch.set_defaults(func=command_fetch)
 
+def command_fetch(args):
+    args.cmd = ["git", "fetch"]
+    command_foreach(args)
+
+# --------------------------------------------------------------------------------
+# Command: commit
+#
 parser_commit = subparsers.add_parser("commit",
                                       help="Commit changes for each dependency",
                                       description="Commit changes for each dependency")
 parser_commit.set_defaults(func=command_commit)
 
+def command_commit(args):
+    args.cmd = ["git", "commit"]
+    command_foreach(args)
+
+# --------------------------------------------------------------------------------
+# Main
+#
 if len(sys.argv) == 1:
     parser.print_help()
     exit(0)
