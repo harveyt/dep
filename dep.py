@@ -287,6 +287,12 @@ class ConfigSection:
                 v.value = value
                 return
         ConfigVar(self, key, value)
+
+    def has_key(self, key):
+        for v in self.vars:
+            if v.name == key:
+                return True
+        return False
     
     def debug_dump(self, prefix=""):
         prefix = "{}{}.".format(prefix, self.fullname)
@@ -342,8 +348,8 @@ class Repository:
             section["commit"] = self.commit
 
     def read_from_config_section(self, section):
-        self.branch = section["branch"]
-        self.commit = section["commit"]
+        self.branch = section["branch"] if section.has_key("branch") else None
+        self.commit = section["commit"] if section.has_key("commit") else None
         
     @staticmethod
     def determine_vcs_from_url(url):
@@ -647,8 +653,8 @@ class Component:
         self.repository.write_to_config_section(self.parent_section)
 
     def _record_to_parent_config(self):
-        self.repository.record()
         if self.parent_section:
+            self.repository.record()            
             self.repository.write_to_config_section(self.parent_section)
 
     def _create_children(self):
@@ -667,10 +673,12 @@ class Component:
     def _build_dep_tree(self, refresh=False):
         if not self._has_config():
             return
-        if refresh:
-            self.config.need_read = True
+#        if refresh:
+#            self.config.need_read = True
+        self.debug_dump("_build_dep_tree pre: ")
         self._read_config()
         self._create_children()
+        self.debug_dump("_build_dep_tree read: ")
         for child in self.children:
             if refresh:
                 child.repository.refresh()
@@ -679,6 +687,7 @@ class Component:
     def init_config(self):
         core = self.config.add_section("core")
         core["default-dep-dir"] = "dep"
+        self.config.need_read = False
         self._write_config()
         
     def read_dep_tree(self):
@@ -694,13 +703,14 @@ class Component:
 
     def write_dep_tree_config(self):
         for child in self.children:
-            child.write_dep_tree()
+            child.write_dep_tree_config()
         self._write_config()
 
     def add_child(self, url):
         child = Component._create_from_url(self, url)
         child._add_to_parent_config()
         self.repository.add_ignore(child.relpath)
+        self.refresh_dep_tree()
         self.record_dep_tree()
         self.write_dep_tree_config()
 
@@ -738,7 +748,6 @@ class Component:
         debug("{}parent_section = {}", prefix, str(self.parent_section))        
         self.config.debug_dump(prefix)
         self.repository.debug_dump(prefix)        
-        self._debug_dump_content(prefix)
         debug("{}children[] = {{", prefix)        
         for i, c in enumerate(self.children):
             if i > 0:
@@ -821,7 +830,7 @@ def command_init(args):
     verbose("Initializing {}", root)
     validate_file_notexists(root.config.path)    
     root.init_config()
-    self.debug_dump("post: ")
+    root.debug_dump("init post: ")
 
 parser_init = subparsers.add_parser("init",
                                     help="Initialise dependency system for this component",
@@ -834,9 +843,9 @@ parser_init.set_defaults(func=command_init)
 def command_add(args):
     root = RootComponent()
     root.read_dep_tree()
-    root.debug_dump("read: ")
-    root.add_child(url)
-    root.debug_dump("post_child: ")
+    root.debug_dump("add read: ")
+    root.add_child(args.url)
+    root.debug_dump("add post: ")
 
 parser_add = subparsers.add_parser("add",
                                    help="Add a new dependency to this component",
@@ -875,7 +884,7 @@ parser_config.set_defaults(func=command_config)
 def command_refresh(args):
     root = RootComponent()
     root.refresh_dep_tree()
-    root.debug_dump("refresh: ")
+    root.debug_dump("refresh post: ")
 
 parser_refresh = subparsers.add_parser("refresh",
                                    help="Refresh dependencies from their source repositories",
@@ -888,10 +897,10 @@ parser_refresh.set_defaults(func=command_refresh)
 def command_record(args):
     root = RootComponent()
     root.read_dep_tree()
-    root.debug_dump("read: ")
+    root.debug_dump("record pre: ")
     root.record_dep_tree()
     root.write_dep_tree_config()
-    root.debug_dump("record: ")
+    root.debug_dump("record post: ")
 
 parser_record = subparsers.add_parser("record",
                                    help="Record dependencies from current source repository state",
@@ -904,7 +913,7 @@ parser_record.set_defaults(func=command_record)
 def command_list(args):
     root = RootComponent()
     root.read_dep_tree()
-    root.debug_dump("read: ")
+    root.debug_dump("list pre: ")
     for c in root.children:
         print c.name
     print root.name
@@ -922,7 +931,7 @@ def command_status(args):
     show_files=(args.show_files or args.show_long)
     show_branch=(args.show_branch or args.show_short or args.show_long)
     root.read_dep_tree()
-    root.debug_dump("read: ")        
+    root.debug_dump("status pre: ")        
     root.status_header()
     root.status(show_files, show_branch)
 
@@ -946,7 +955,7 @@ parser_status.set_defaults(func=command_status)
 def command_foreach(args):
     root = RootComponent()
     root.read_dep_tree()
-    root.debug_dump("read: ")
+    root.debug_dump("foreach pre: ")
     root.foreach(args.cmd)
 
 parser_foreach = subparsers.add_parser("foreach",
