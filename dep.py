@@ -215,6 +215,12 @@ class Config:
                 return s
         raise KeyError("Unknown section '{}' in {}".format(key, self))
 
+    def has_section(self, name, subname=None):
+        for s in self.sections:
+            if s.name = name and s.subname = subname:
+                return True
+        return False
+        
     def add_section(self, name, subname=None):
         self.need_write = True        
         return ConfigSection(self, name, subname)
@@ -604,15 +610,18 @@ class GitRepository(Repository):
 # BaseComponent
 #
 class BaseComponent:
-    def __init__(self, name, relpath, parent, url=None):
+    def __init__(self, name, relpath, parent, url=None, parent_section=None):
         self.name = name
         self.relpath = relpath
         self.work_dir = os.path.join(parent.work_dir, relpath) if parent else relpath
         self.parent = parent
-        self.root = parent.root if parent else self        
+        self.root = parent.root if parent else self
+        self.parent_section = parent_section
         self.config = Config(os.path.join(self.work_dir, ".depconfig"))
         # TODO: Pass down name?            
         self.repository = Repository.create(self.work_dir, url)
+        if self.parent_section:
+            self.repository.read_from_config_section(self.parent_section)        
         self.children = []
         if parent:
             parent.children.append(self)
@@ -633,17 +642,17 @@ class BaseComponent:
             self.repository.post_edit(self.config.path)
 
     def _add_to_parent_config(self):
-        section = self.parent.config.add_section("dep", self.name)
-        section["relpath"] = self.relpath
-        self.repository.write_to_config_section(section)
+        self.parent_section = self.parent.config.add_section("dep", self.name)
+        self.parent_section["relpath"] = self.relpath
+        self.repository.write_to_config_section(self.parent_section)
 
     def _record_to_parent_config(self):
         self.repository.record()
-        if self.parent:
-            section = self.parent.config["dep." + self.name]
-            self.repository.write_to_config_section(section)
+        if self.parent_section:
+            self.repository.write_to_config_section(self.parent_section)
 
     def _create_children(self):
+        self.children = []
         for section in self.config.sections_named("dep"):
             _create_from_config_section(self, section)
         
@@ -654,12 +663,14 @@ class BaseComponent:
     def _build_dep_tree(self, refresh=False):
         if not self._has_config():
             return
+        if refresh:
+            self.config.need_read = True
         self._read_config()
         self._create_children()
         for child in self.children:
             if refresh:
                 child.repository.refresh()
-            child.read_dep_tree()
+            child._build_dep_tree(refresh=refresh)
 
     def read_dep_tree(self):
         self._build_dep_tree(refresh=False)
@@ -694,6 +705,7 @@ class BaseComponent:
         debug("{}work_dir = {}", prefix, self.work_dir)
         debug("{}parent = {}", prefix, str(self.parent))
         debug("{}root = {}", prefix, str(self.root))
+        debug("{}parent_section = {}", prefix, str(self.parent_section))        
         self.config.debug_dump(prefix)
         self.repository.debug_dump(prefix)        
         self._debug_dump_content(prefix)
@@ -710,9 +722,6 @@ class BaseComponent:
 class Component(BaseComponent):
     def __init__(self, name, relpath, parent, url, section):
         BaseComponent.__init__(self, name, relpath, parent, url)
-        # TODO: Pass down section to do this?
-        if section:
-            self.repository.read_from_config_section(section)
 
     def add_child(self, url):
         self.read_dep_tree()
@@ -726,14 +735,6 @@ class Component(BaseComponent):
         self.repository.add_ignore(child.relpath)
         self.debug_dump("add_child: ")
         
-    def record(self):
-        self.read_dep_tree()
-        self.debug_dump("read: ")
-        for c in self.children:
-            c._record_to_parent_config()
-        self._write_config()
-        self.debug_dump("record: ")
-
     def list(self):
         if self._has_config():
             self.read_dep_tree()
@@ -783,6 +784,13 @@ class RootComponent(Component):
         self._write_config()
         self.debug_dump("post: ")
 
+    def record(self):
+        self.read_dep_tree()
+        self.debug_dump("read: ")
+        self.record_dep_tree()
+        self.write_dep_tree_config()
+        self.debug_dump("record: ")
+        
     def refresh(self):
         self.refresh_dep_tree()
         self.debug_dump("refresh: ")
