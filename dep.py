@@ -613,6 +613,83 @@ class GitRepository(Repository):
         status("{:1} {:16} {:41} {:>6} {:>6} {}", mod, branch, commit, ahead, behind, path)
 
 # --------------------------------------------------------------------------------
+# DAGComponent
+# Models the directed acyclic graph (DAG) of a component heirachy.
+#
+class DAGComponent:
+    def __init__(self, name, path, parent):
+        self.name = name
+        self.rel_path = path
+        self.abs_path = os.path.join(parent.abs_path, path) if parent else path
+        self.parent = parent
+        self.root = parent.root if parent else self
+        self.children = []
+        if parent:
+            parent.children.append(self)
+
+    def __str__(self):
+        return "{} '{}'".format(self.__class__.__name__, self.name)
+
+    def _debug_dump_content(prefix):
+        pass
+
+    def debug_dump(self, prefix=""):
+        if not args.debug or args.quiet:
+            return
+        debug("{}--- {} ---", prefix, self)
+        debug("{}name = {}", prefix, self.name)
+        debug("{}rel_path = {}", prefix, self.rel_path)
+        debug("{}abs_path = {}", prefix, self.abs_path)
+        debug("{}parent = {}", prefix, str(self.parent))
+        debug("{}root = {}", prefix, str(self.root))
+        debug("{}children[] = {}", prefix, self.children)        
+        self._debug_dump_content(prefix)
+    
+# --------------------------------------------------------------------------------
+# FlatDAGComponent
+# Models the flat view of each component's direct and indirect child dependencies.
+#
+class FlatDAGComponent(DAGComponent):
+    def __init__(self, name, path, parent):
+        DAGComponent.__init__(name, path, parent)
+        self._flat_children = None
+
+    @property
+    def flat_children(self):
+        if self._flat_children is None:
+            self._rebuild_flat_children()
+        return self._flat_children
+
+    def _find_unique_child(self, name):
+        return next((c for c in self._flat_children if c.name == name), None)
+
+    def _add_unique_child(self, child):
+        if self._find_unique_child(child):
+            return
+        self._flat_children.append(self._create_flat_child(child))
+
+    def _create_flat_child(self, child):
+        return child
+
+    def _add_unique_children(self, children):
+        for child in children:
+            self._add_unique_child(child)
+
+    def _rebuild_flat_children(self):
+        self._flat_children = []
+        for child in self.children:
+            self._add_unique_children(child.flat_children)
+        self._add_unique_children(self.children)
+
+    def _debug_dump_content(prefix):
+        debug("{}flat_children = {{", prefix, self.name)
+        for i, c in enumerate(self.children):
+            if i > 0:
+                debug("{},".format(prefix))
+            c.debug_dump("{}[{}] ".format(prefix, i))
+        debug("{}}}", prefix)
+        
+# --------------------------------------------------------------------------------
 # Component
 #
 class Component:
