@@ -327,13 +327,17 @@ class Repository:
         self.branch = None
         self.commit = None
 
-    def update_config_section(self, section):
+    def write_to_config_section(self, section):
         section["url"] = self.url
         section["vcs"] = self.vcs
         if self.branch:
             section["branch"] = self.branch
         if self.commit:
             section["commit"] = self.commit
+
+    def read_from_config_section(self, section):
+        self.branch = section["branch"]
+        self.commit = section["commit"]
         
     @staticmethod
     def determine_vcs_from_url(url):
@@ -616,23 +620,30 @@ class BaseComponent:
     def __str__(self):
         return "{} '{}'".format(self.__class__.__name__, self.name)
 
-    def has_config(self):
+    def _has_config(self):
         return self.config.exists()
         
-    def read_config(self):
+    def _read_config(self):
         self.config.read()
 
-    def write_config(self):
-        self.repository.pre_edit(self.config.path)
-        self.config.write()
-        self.repository.post_edit(self.config.path)
+    def _write_config(self):
+        if self.config.need_write:
+            self.repository.pre_edit(self.config.path)
+            self.config.write()
+            self.repository.post_edit(self.config.path)
 
-    def add_to_parent_config(self):
+    def _add_to_parent_config(self):
         section = self.parent.config.add_section("dep", self.name)
         section["relpath"] = self.relpath
-        self.repository.update_config_section(section)
+        self.repository.write_to_config_section(section)
 
-    def create_children(self):
+    def _record_to_parent_config(self):
+        self.repository.record()
+        if self.parent:
+            section = self.parent.config["dep." + self.name]
+            self.repository.write_to_config_section(section)
+
+    def _create_children(self):
         for section in self.config.sections_named("dep"):
             _create_from_config_section(self, section)
         
@@ -641,10 +652,10 @@ class BaseComponent:
         return TopComponent(parent, section=section)
 
     def _build_dep_tree(self, refresh=False):
-        if not self.has_config():
+        if not self._has_config():
             return
-        self.read_config()
-        self.create_children()
+        self._read_config()
+        self._create_children()
         for child in self.children:
             if refresh:
                 child.repository.refresh()
@@ -655,6 +666,16 @@ class BaseComponent:
             
     def refresh_dep_tree(self):
         self._build_dep_tree(refresh=True)
+        
+    def record_dep_tree(self):
+        for child in self.children:
+            child.record_dep_tree()
+        self._record_to_parent_config()
+
+    def write_dep_tree_config(self):
+        for child in self.children:
+            child.write_dep_tree()
+        self._write_config()
 
     def run_command(self, cmd)
         status("##===================================================================================================")
@@ -691,24 +712,17 @@ class Component(BaseComponent):
         BaseComponent.__init__(self, name, relpath, parent, url)
         # TODO: Pass down section to do this?
         if section:
-            self.repository.branch = section["branch"]
-            self.repository.commit = section["commit"]
-
-    def _record_state(self):
-        self.repository.record()
-        if self.parent:
-            section = self.parent.config["dep." + self.name]
-            self.repository.update_config_section(section)
+            self.repository.read_from_config_section(section)
 
     def add_child(self, url):
         self.read_dep_tree()
         self.debug_dump("read: ")
         child = TopComponent(self, url=url)
         child.repository.refresh()
-        child.add_to_parent_config()
-        child._record_state()
+        child._add_to_parent_config()
+        child._record_to_parent_config()
         child.refresh()
-        self.write_config()
+        self._write_config()
         self.repository.add_ignore(child.relpath)
         self.debug_dump("add_child: ")
         
@@ -716,12 +730,12 @@ class Component(BaseComponent):
         self.read_dep_tree()
         self.debug_dump("read: ")
         for c in self.children:
-            c._record_state()
-        self.write_config()
+            c._record_to_parent_config()
+        self._write_config()
         self.debug_dump("record: ")
 
     def list(self):
-        if self.has_config():
+        if self._has_config():
             self.read_dep_tree()
             for c in self.children:
                 print c.name
@@ -732,7 +746,7 @@ class Component(BaseComponent):
             status("M  Branch           Commit                                    Ahead Behind Path")
             status("-- ---------------  ---------------------------------------- ------ ------ -----------------------")
         self.repository.status_brief(self.relpath if self.parent else ".")
-        if not self.has_config():
+        if not self._has_config():
             return
         self.read_dep_tree()
         for c in self.children:
@@ -766,7 +780,7 @@ class RootComponent(Component):
         validate_file_notexists(self.config.path)
         core = self.config.add_section("core")
         core["default-dep-dir"] = "dep"
-        self.write_config()
+        self._write_config()
         self.debug_dump("post: ")
 
     def refresh(self):
