@@ -63,6 +63,14 @@ class RealComponent(BasicComponent):
     
     def _has_config(self):
         return self.config.exists()
+
+    def _has_repo(self):
+        return self.repository is not None and self.repository.vcs != "file"
+
+    def _validate_has_repo(self):
+        if self._has_repo():
+            return
+        error("{} does not have a non-file based SCM repository", self)
         
     def _read_config(self):
         if self.config.need_read:
@@ -93,6 +101,7 @@ class RealComponent(BasicComponent):
         self.debug_dump("init post: ")
 
     def add_new_dependency(self, url):
+        self._validate_has_repo()
         self._read_config()
         new_dep = TopComponent(url, self)
         verbose("Adding dependency {} to {}", new_dep, self)
