@@ -707,7 +707,7 @@ class Component(FlatDAGComponent):
         self._read_dep_tree_recurse()
         self.debug_dump("read_dep_tree post: ")        
 
-    def _read_dep_tree_create_children():
+    def _read_dep_tree_create_children(self):
         pass
     
     def _read_dep_tree_recurse(self):
@@ -720,7 +720,7 @@ class Component(FlatDAGComponent):
         self._refresh_dep_tree_recurse()
         self.debug_dump("refresh_dep_tree post: ")
 
-    def _refresh_dep_tree_create_children():
+    def _refresh_dep_tree_create_children(self):
         pass
 
     def _refresh_dep_tree_recurse(self):
@@ -785,6 +785,20 @@ class RealComponent(Component):
         if not self.parent.config.has_section("dep", self.name):
             return
         self.parent_section = self.parent.config["dep.{}".format(self.name)]
+
+    def _read_dep_tree_create_children(self):
+        self._read_config()
+    
+    def _refresh_dep_tree_create_children(self):
+        self.repository.refresh()
+        self.config.need_read = True
+        self._read_config()
+
+    def _record_dep_tree_to_config():
+        pass
+        
+    def _write_dep_tree_config():
+        pass
         
     def _read_repository_state_from_config(self):
         if self.parent_section is None:
@@ -820,7 +834,31 @@ class RealComponent(Component):
         self.config.debug_dump(prefix)
         self.repository.debug_dump(prefix)        
         Component._debug_dump_content(prefix)
-            
+
+# --------------------------------------------------------------------------------
+# LinkComponent
+# Models a link component which points at a RealComponent.
+#
+class LinkComponent(Component):
+    def __init__(self, name, path, parent, url=None):
+        Component.__init__(name, path, parent)
+    
+    def _read_dep_tree_create_children(self):
+        pass
+    
+    def _refresh_dep_tree_create_children(self):
+        pass
+
+    def _record_dep_tree_to_config():
+        pass
+        
+    def _write_dep_tree_config():
+        pass
+
+    def _debug_dump_content(self, prefix):
+        debug("{}linked_component = {}", prefix, self.linked_component)
+        Component._debug_dump_content(prefix)
+    
 # --------------------------------------------------------------------------------
 # Component
 #
