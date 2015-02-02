@@ -6,6 +6,7 @@
 #
 import sys
 import os
+from dep import opts
 
 def get_program_path():
     return os.path.realpath(__file__)
@@ -17,17 +18,17 @@ def error(fmt, *a):
     sys.exit(1)
 
 def debug(fmt, *a):
-    if not args.debug:
+    if not opts.args.debug:
         return
     status(fmt, *a)
 
 def verbose(fmt, *a):
-    if not args.verbose:
+    if not opts.args.verbose:
         return
     status(fmt, *a)
 
 def status(fmt, *a):
-    if args.quiet:
+    if opts.args.quiet:
         return
     sys.stdout.write(fmt.format(*a))
     sys.stdout.write("\n")
@@ -63,14 +64,14 @@ def run(*cmd, **kw):
         verbose("-> {}", cmd_text)
         if cwd:
             verbose("-> popd")
-    if args.dry_run and not query and not pipe:
+    if opts.args.dry_run and not query and not pipe:
         return
     try:
         if query:
             return subprocess.check_output(cmd, stderr=subprocess.STDOUT, cwd=cwd)
         elif pipe:
             return subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=cwd)            
-        elif args.quiet:
+        elif opts.args.quiet:
             with open(os.devnull, "wb") as dev_null:
                 status = subprocess.call(cmd, stdout=dev_null, cwd=cwd)
         else:
@@ -89,7 +90,7 @@ def make_dirs(dir):
     if os.path.isdir(dir):
         return
     verbose("-> mkdir -p {}", dir)
-    if args.dry_run:
+    if opts.args.dry_run:
         return
     try:
         os.makedirs(dir)

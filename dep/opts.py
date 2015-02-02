@@ -8,10 +8,13 @@ import argparse
 
 global parser
 global subparsers
+global args
 
 parser = argparse.ArgumentParser(description="Manages component based dependencies using version control systems (VCS).")
  
 subparsers = parser.add_subparsers(title="command arguments")
+
+args = []
 
 parser.add_argument("--version", action="version", version="dep %%VERSION%%",
                     help="Show version and exit")
