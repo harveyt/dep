@@ -87,7 +87,7 @@ class Config:
                 yield b
     
     def debug_dump(self, prefix=""):
-        if not args.debug or args.quiet:
+        if not opts.args.debug or opts.args.quiet:
             return
         debug("{}--- {} ---", prefix, self)
         debug("{}need_read = {}", prefix, self.need_read)

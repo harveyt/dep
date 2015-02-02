@@ -4,6 +4,9 @@
 #
 # %%LICENSE%%
 #
+import os
+import re
+
 class Repository:
     def __init__(self, work_dir, url, vcs, name):
         self.work_dir = work_dir
