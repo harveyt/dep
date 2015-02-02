@@ -1,8 +1,8 @@
 TESTS	= test-init \
 	  test-init-with-git \
 	  test-add \
-	  test-add-fails-without-vcs
-# test-config-work-dir
+	  test-add-fails-without-vcs \
+	  test-config-work-dir
 # test-refresh-simple
 # test-refresh-older
 # test-record-simple
