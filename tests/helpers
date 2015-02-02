@@ -49,9 +49,7 @@ test_fail()
 test_exec()
 {
     test_echo "Test execute \"$@\""
-    echo
     "$@"
-    echo    
     status=$?
     if [[ $status -ne 0 ]]; then
 	test_fail "returned non-zero status $status"
@@ -61,9 +59,7 @@ test_exec()
 test_exec_fails()
 {
     test_echo "Test execute which should fail \"$@\""
-    echo    
     "$@"
-    echo
     status=$?
     if [[ $status -eq 0 ]]; then
 	test_fail "returned zero status"

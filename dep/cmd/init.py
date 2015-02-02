@@ -8,7 +8,7 @@ from dep import *
 from dep.helpers import *
 
 def command_init(args):
-    root = comp.Root()
+    root = comp.RootComponent()
     root.initialize_new_config()
 
 parser_init = opts.subparsers.add_parser("init",
