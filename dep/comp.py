@@ -46,7 +46,6 @@ class RealComponent(BasicComponent):
         self._parent_section = None
         self.config = config.Config(os.path.join(self.abs_path, ".depconfig"))
         self.repository = scm.Repository.create(self.abs_path, url)
-        self.debug_dump("__init__: ")        
 
     @property
     def parent_section(self):
@@ -75,21 +74,37 @@ class RealComponent(BasicComponent):
     def _read_config(self):
         if self.config.need_read:
             self.config.read()
-            self.debug_dump("read: ")
 
     def _write_config(self):
         if self.config.need_write:
-            self.debug_dump("write: ")            
             self.repository.pre_edit(self.config.path)
             self.config.write()
             self.repository.post_edit(self.config.path)
-
+            self.debug_dump("write: ")
+            
     def _add_to_parent_config(self):
         if self.parent_section:
             error("Cannot add {} to {}, already exists", self, self.parent)
             return
         self._parent_section = self.parent.config.add_section("dep", self.name)
         self.parent_section["relpath"] = self.rel_path
+
+    def _read_dep_tree_recurse(self):
+        if not self._has_config():
+            return
+        self._read_config()
+        self._create_children_from_config()
+        for child in self.children:
+            child._read_dep_tree_recurse()
+
+    def _read_dep_tree(self):
+        self._read_dep_tree_recurse()
+        self.debug_dump("read: ")
+
+    def _create_children_from_config(self):
+        self.children = []
+        for section in self.config.sections_named("dep"):
+            new_dep = TopComponent.create_from_section(section)
             
     def initialize_new_config(self):
         verbose("Initializing {}", self)
@@ -102,8 +117,8 @@ class RealComponent(BasicComponent):
 
     def add_new_dependency(self, url):
         self._validate_has_repo()
-        self._read_config()
-        new_dep = TopComponent(url, self)
+        self._read_dep_tree()
+        new_dep = TopComponent.create_from_url(url, self)
         verbose("Adding dependency {} to {}", new_dep, self)
         new_dep._add_to_parent_config()
         new_dep.repository.refresh()        
@@ -126,8 +141,20 @@ class RootComponent(RealComponent):
         RealComponent.__init__(self, name, path, None)
 
 class TopComponent(RealComponent):
-    def __init__(self, url, parent):
+    def __init__(self, name, path, parent, url):
+        RealComponent.__init__(self, name, path, parent, url)
+
+    @staticmethod
+    def create_from_url(url, parent):
         name = scm.Repository.determine_name_from_url(url)
         dep_dir = parent.config["core"]["default-dep-dir"]
         path = os.path.join(dep_dir, name)
-        RealComponent.__init__(self, name, path, parent, url)
+        return TopComponent(name, path, parent, url)
+
+    @staticmethod
+    def create_from_section(section, parent):
+        name = section.subname
+        path = section["relpath"]
+        url = section["url"]
+        return TopComponent(name, path, parent, url)
+        
