@@ -1,6 +1,5 @@
-TESTS	= test-init				
-
-# test-init-with-git
+TESTS	= test-init \
+	  test-init-with-git
 # test-add
 # test-add-fails-without-vcs
 # test-config-work-dir

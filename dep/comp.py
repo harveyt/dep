@@ -47,10 +47,14 @@ class RealComponent(BasicComponent):
         return self.config.exists()
         
     def _read_config(self):
+        
         self.config.read()
 
     def _write_config(self):
-        self.config.write()
+        if self.config.need_write:
+            self.repository.pre_edit(self.config.path)
+            self.config.write()
+            self.repository.post_edit(self.config.path)
 
     def initialize_new_config(self):
         verbose("Initializing {}", self)

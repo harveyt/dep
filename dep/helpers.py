@@ -6,6 +6,7 @@
 #
 import sys
 import os
+import subprocess
 from dep import opts
 
 def get_program_path():
