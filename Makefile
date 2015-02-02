@@ -3,6 +3,9 @@ NAME	= dep
 BINDIR	= /usr/local/bin
 VERSION	= $(shell git describe --tags 2>/dev/null || echo unknown)
 
+compile:
+	python -m compileall dep
+
 install:
 	rm -f $(BINDIR)/$(NAME)
 	awk '/%%README%%/ {								\

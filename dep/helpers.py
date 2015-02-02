@@ -10,13 +10,6 @@ import os
 def get_program_path():
     return os.path.realpath(__file__)
 
-def show_version():
-    if args.quiet:
-        return
-    print """dep version {}
-Copyright (c) 2015 Harvey John Thompson
-See {} for LICENSE.""".format(version, get_program_path())
-
 def error(fmt, *a):
     sys.stderr.write("dep: ")
     sys.stderr.write(fmt.format(*a))

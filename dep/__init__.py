@@ -4,4 +4,5 @@
 #
 # %%LICENSE%%
 #
-__all__ = ["helpers", "config", "scm", "git"]
+__all__ = ["helpers", "config", "scm", "comp", "opts", "main"]
+
