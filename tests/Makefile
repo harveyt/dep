@@ -1,14 +1,15 @@
-TESTS	= test-init				\
-	test-init-with-git			\
-	test-add				\
-	test-add-fails-without-vcs		\
-	test-config-work-dir			\
-	test-refresh-simple			\
-	test-refresh-older			\
-	test-record-simple			\
-	test-build-two-level			\
-	test-list				\
-	test-build-two-level-shared
+TESTS	= test-init				
+
+# test-init-with-git
+# test-add
+# test-add-fails-without-vcs
+# test-config-work-dir
+# test-refresh-simple
+# test-refresh-older
+# test-record-simple
+# test-build-two-level
+# test-list
+# test-build-two-level-shared
 
 test:
 	@status=0;				\

@@ -7,7 +7,8 @@
 import sys
 import os
 import re
-from . import helpers
+from dep import opts
+from dep.helpers import *
 
 class Config:
     def __init__(self, path):
@@ -53,7 +54,7 @@ class Config:
         if not self.need_write:
             return
         status("Writing {}", self)
-        if args.dry_run:
+        if opts.args.dry_run:
             self.need_write = False
             return
         try:
