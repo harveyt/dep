@@ -6,6 +6,8 @@
 #
 import os
 import re
+from dep import opts
+from dep.helpers import *
 
 class Repository:
     def __init__(self, work_dir, url, vcs, name):
@@ -64,7 +66,7 @@ class Repository:
             error("Cannot determine VCS from repository URL '{}'", url)
 
     def debug_dump(self, prefix=""):
-        if not args.debug or args.quiet:
+        if not opts.args.debug or opts.args.quiet:
             return
         debug("{}--- {} ---", prefix, self)
         debug("{}work_dir = {}", prefix, self.work_dir)
@@ -128,7 +130,7 @@ class GitRepository(Repository):
         # TODO: Better way to find this?
         self.git_dir = os.path.join(work_dir, ".git")
         self.ignore_file = os.path.join(work_dir, ".gitignore")
-        self.quiet_flag = "--quiet" if args.quiet else None
+        self.quiet_flag = "--quiet" if opts.args.quiet else None
 
     def __str__(self):
         return "{} '{}'".format(self.__class__.__name__, self.git_dir)
@@ -184,7 +186,7 @@ class GitRepository(Repository):
 
     def add_ignore(self, path):
         verbose("Adding '{}' to ignore file '{}'", path, self.ignore_file)
-        if args.dry_run:
+        if opts.args.dry_run:
             return
         # TODO: With git we know we can just post_edit the file to do the right thing.
         # TODO: With out vcs we might need register/pre_edit.
@@ -197,7 +199,7 @@ class GitRepository(Repository):
 
     def remove_ignore(self, path):
         verbose("Removing '{}' from ignore file '{}'", path, self.ignore_file)
-        if args.dry_run:
+        if opts.args.dry_run:
             return
         if not os.path.exists(self.ignore_file):
             # TODO: There is no ignore file, so cannot remove?

@@ -36,15 +36,12 @@ class BasicComponent:
         debug("{}root = {}", prefix, str(self.root))
         debug("{}children[] = {}", prefix, self.children)        
         self._debug_dump_content(prefix)
-    
-class Root(BasicComponent):
-    def __init__(self):
-        cwd = find_root_work_dir()
-        if cwd is None:
-            cwd = os.getcwd()
-        name = scm.Repository.determine_name_from_url(cwd)
-        BasicComponent.__init__(self, name, cwd, None)
+
+class RealComponent(BasicComponent):
+    def __init__(self, name, path, parent, url=None):
+        BasicComponent.__init__(self, name, path, parent)
         self.config = config.Config(os.path.join(self.abs_path, ".depconfig"))
+        self.repository = scm.Repository.create(self.abs_path, url)
 
     def _has_config(self):
         return self.config.exists()
@@ -54,7 +51,7 @@ class Root(BasicComponent):
 
     def _write_config(self):
         self.config.write()
-        
+
     def initialize_new_config(self):
         verbose("Initializing {}", self)
         validate_file_notexists(self.config.path)
@@ -66,6 +63,15 @@ class Root(BasicComponent):
 
     def _debug_dump_content(self, prefix=""):
         self.config.debug_dump(prefix)
+        self.repository.debug_dump(prefix)        
+        
+class Root(RealComponent):
+    def __init__(self):
+        path = find_root_work_dir()
+        if path is None:
+            path = os.getcwd()
+        name = scm.Repository.determine_name_from_url(path)
+        RealComponent.__init__(self, name, path, None)
 
 
         
