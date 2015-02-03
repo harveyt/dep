@@ -31,7 +31,7 @@ class BasicComponent:
     def debug_dump(self, prefix=""):
         if not opts.args.debug or opts.args.quiet:
             return
-        debug("{}--- {} ---", prefix, self)
+        debug("{}--- {} ---", prefix, repr(self))
         debug("{}name = {}", prefix, self.name)
         debug("{}rel_path = {}", prefix, self.rel_path)
         debug("{}abs_path = {}", prefix, self.abs_path)
@@ -135,7 +135,7 @@ class RealComponent(BasicComponent):
     def _create_children_from_config(self):
         self.children = []
         for section in self.config.sections_named("dep"):
-            new_dep = TopComponent.create_from_section(section, self)
+            new_dep = self.root._find_or_create_component(section=section, parent=self)
             
     def initialize_new_config(self):
         verbose("Initializing {}", self)
@@ -149,7 +149,7 @@ class RealComponent(BasicComponent):
     def add_new_dependency(self, url):
         self._validate_has_repo()
         self._read_dep_tree()
-        new_dep = TopComponent.create_from_url(url, self)
+        new_dep = self.root._find_or_create_component(url=url, parent=self)
         verbose("Adding dependency {} to {}", new_dep, self)
         new_dep._add_to_parent_config()
         new_dep.repository.refresh()
@@ -176,7 +176,7 @@ class RealComponent(BasicComponent):
         debug("{}parent_section = {}", prefix, self.parent_section)
         self.config.debug_dump(prefix)
         self.repository.debug_dump(prefix)        
-        
+
 class RootComponent(RealComponent):
     def __init__(self):
         path = find_root_work_dir()
@@ -184,22 +184,43 @@ class RootComponent(RealComponent):
             path = os.getcwd()
         name = scm.Repository.determine_name_from_url(path)
         RealComponent.__init__(self, name, path, None)
+        self.top_components = []
+
+    def _find_top_component(self, name):
+        return next((c for c in self.top_components if c.name == name), None)
+
+    def _find_or_create_component(self, section=None, url=None, parent=None):
+        if parent is None:
+            error("Must pass parent to _find_or_create_component")
+        if (not section and not url) or (section and url):
+            error("Must pass section or url to _find_or_create_component")
+        if section:
+            name = section.subname
+            path = section["relpath"]
+            url = section["url"]
+        else:
+            name = scm.Repository.determine_name_from_url(url)
+            dep_dir = parent.config["core"]["default-dep-dir"]
+            path = os.path.join(dep_dir, name)
+        top = self._find_top_component(name)
+        if top is None:
+            top = TopComponent(name, path, parent, url)
+        if parent is self:
+            return top
+        return LinkComponent(name, path, parent, top)
+
+    def _debug_dump_content(self, prefix=""):
+        debug("{}top_components = {}", prefix, self.top_components)
 
 class TopComponent(RealComponent):
     def __init__(self, name, path, parent, url):
         RealComponent.__init__(self, name, path, parent, url)
-
-    @staticmethod
-    def create_from_url(url, parent):
-        name = scm.Repository.determine_name_from_url(url)
-        dep_dir = parent.config["core"]["default-dep-dir"]
-        path = os.path.join(dep_dir, name)
-        return TopComponent(name, path, parent, url)
-
-    @staticmethod
-    def create_from_section(section, parent):
-        name = section.subname
-        path = section["relpath"]
-        url = section["url"]
-        return TopComponent(name, path, parent, url)
+        parent.root.top_components.append(self)
         
+class LinkComponent(BasicComponent):
+    def __init__(self, name, path, parent, top_component):
+        BasicComponent.__init__(name, path, parent)
+        self.top_component = top_component
+        
+    def _debug_dump_content(self, prefix=""):
+        debug("{}top_component = {}", self.top_component)
