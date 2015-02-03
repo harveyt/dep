@@ -20,9 +20,6 @@ class BasicComponent:
     def __str__(self):
         return "{} '{}' at {}".format(self.__class__.__name__, self.name, self.abs_path)
 
-    def _has_config(self):
-        return False
-    
     def _read_config(self):
         pass
 
@@ -47,8 +44,6 @@ class BasicComponent:
             new_dep = self.root._find_or_create_component(section=section, parent=self)
         
     def _build_dep_tree_recurse(self, refresh=False):
-        if not self._has_config():
-            return
         self._read_config()
         self._create_children_from_config()
         for child in self.children:
@@ -124,14 +119,13 @@ class RealComponent(BasicComponent):
             return
         if not self.parent.config.has_section("dep", self.name):
             return
-        self.parent_section = self.parent.config["dep.{}".format(self.name)]
-    
-    def _has_config(self):
-        return self.config.exists()
-
+        self._parent_section = self.parent.config["dep.{}".format(self.name)]
+        
     def _read_config(self):
         if self.config.need_read:
-            self.config.read()
+            if self.config.exists():
+                self.config.read()
+            self._read_repository_state_from_parent_config()
 
     def _write_config(self):
         if self.config.need_write:
@@ -154,7 +148,12 @@ class RealComponent(BasicComponent):
             return
         self._parent_section = self.parent.config.add_section("dep", self.name)
         self.parent_section["relpath"] = self.rel_path
-
+        
+    def _read_repository_state_from_parent_config(self):
+        if self.parent_section is None:
+            return
+        self.repository.read_state_from_config_section(self.parent_section)
+        
     def _refresh_work_dir(self):
         self.repository.refresh()        
         
@@ -300,9 +299,6 @@ class LinkComponent(BasicComponent):
         BasicComponent.__init__(self, name, path, parent)
         self.top_component = top_component
 
-    def _has_config(self):
-        return self.top_component._has_config()
-        
     def _read_config(self):
         self.top_component._read_config()
 
