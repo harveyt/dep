@@ -133,3 +133,19 @@ def find_root_work_dir(path=None):
         path = os.path.dirname(work_dir)
         if path == os.path.sep:
             return None
+
+def make_relative_symlink(src, dst):
+    # Example: make_relative_symlink("/a/b/c", "/a/d/e")
+    # e -> ../b/c
+    if os.path.exists(dst):
+        error("Cannot make relative symlink from '{}' to '{}', as destination already exists", src, dst)
+    dstdir = os.path.dirname(dst)
+    relpath = os.path.relpath(src, dstdir)
+    make_dirs(dstdir)
+    verbose("-> ln -s {} {}", relpath, dst)
+    if opts.args.dry_run:
+        return
+    try:
+        os.symlink(relpath, dst)
+    except OSError, e:
+        error("Cannot make relative symlink from '{}' to '{}': {}", src, dst, e)

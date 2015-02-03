@@ -18,7 +18,7 @@ class BasicComponent:
         self.children = []
 
     def __str__(self):
-        return "{} '{}'".format(self.__class__.__name__, self.name)
+        return "{} '{}' at {}".format(self.__class__.__name__, self.name, self.abs_path)
 
     def _has_config(self):
         return False
@@ -278,6 +278,9 @@ class LinkComponent(BasicComponent):
 
     def _refresh_work_dir(self):
         self.top_component._refresh_work_dir()
+        if not os.path.isdir(self.abs_path):
+            status("Linking {} to {}", self.top_component, self)
+            make_relative_symlink(self.top_component.abs_path, self.abs_path)
 
     def _record_to_parent_config(self):
         self.top_component._record_to_parent_config()

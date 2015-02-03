@@ -150,14 +150,15 @@ test_symlink_exists()
     if [[ ! -L $source ]]; then
 	test_fail "symlink \"$source\" does not exist"
     fi
-    actual_dest=$(readlink)
+    actual_dest=$(readlink "$source")
+    abs_source=$(test_realpath "$source")
     abs_dest=$(test_realpath "$dest")
-    abs_actual_dest=$(test_realpath "$actual_dest")    
+    abs_actual_dest=$(test_realpath "$(dirname "$abs_source")/$actual_dest")
+    test_echo "Actual symlink rel dest: \"$actual_dest\""
+    test_echo "Actual symlink abs dest: \"$abs_actual_dest\""    
+    test_echo "Expect symlink abs dest: \"$abs_dest\""
     if [[ "$abs_dest" != "$abs_actual_dest" ]]; then
-	test_echo "symlink \"$source\" -> \"$actual_dest\""
-	test_echo "symlink \"$source\" -> \"$abs_actual_dest\""
-	test_echo "expecting symlink \"$source\" -> \"$abs_dest\""
-	test_fail "symlink \"$source\" does point at \"$dest\""
+	test_fail "symlink \"$source\" does not point at \"$dest\""
     fi
 }
 

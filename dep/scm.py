@@ -160,7 +160,7 @@ class GitRepository(Repository):
 
     def checkout(self, branch=None, commit=None):
         branch_flag = None if branch is None else "-B"
-        branch_name = None if branch is None else branch
+        branch_name = None if branch is None else self._branch_name_from_ref(branch)
         commit_flag = None if commit is None else commit
         branch_mesg = "" if branch is None else "\n    on branch '{}'".format(branch)        
         commit_mesg = "" if commit is None else "\n    at commit '{}'".format(commit)
