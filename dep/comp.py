@@ -77,6 +77,14 @@ class BasicComponent:
         for child in self.children:
             child.write_dep_tree_config()
         self._write_config()
+
+    def run_command(self, cmd):
+        status("##===================================================================================================")
+        status("## {}:", self)
+        old_quiet = opts.args.quiet
+        opts.args.quiet = False
+        run(*cmd, shell=True, cwd=self.abs_path)
+        opts.args.quiet = old_quiet
         
     def _debug_dump_content(self, prefix):
         pass
@@ -200,6 +208,13 @@ class RealComponent(BasicComponent):
         for top in self.root.top_components:
             print top.name
         print self.root.name
+
+    def foreach_dependency(self, cmd):
+        self._validate_has_repo()
+        self.read_dep_tree()
+        for top in self.root.top_components:
+            top.run_command(cmd)
+        self.root.run_command(cmd)
         
     def _debug_dump_content(self, prefix=""):
         debug("{}parent_section = {}", prefix, self.parent_section)
@@ -269,7 +284,7 @@ class RootComponent(RealComponent):
 class TopComponent(RealComponent):
     def __init__(self, name, path, parent, url):
         RealComponent.__init__(self, name, path, parent, url)
-        parent.root.top_components.append(self)
+        parent.root.top_components.insert(0, self)
         
 class LinkComponent(BasicComponent):
     def __init__(self, name, path, parent, top_component):
