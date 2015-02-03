@@ -5,10 +5,11 @@ TESTS	= test-init \
 	  test-config-work-dir \
 	  test-refresh-simple \
 	  test-refresh-older \
-	  test-record-simple
-# test-build-two-level
+	  test-record-simple \
+	  test-build-two-level \
+	  test-build-two-level-shared
 # test-list
-# test-build-two-level-shared
+
 
 test:
 	@status=0;				\
