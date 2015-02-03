@@ -158,7 +158,29 @@ class GitRepository(Repository):
         status("Downloading {}\n    from '{}'", self, self.url)
         run("git", "clone", self.quiet_flag, "--no-checkout", self.url, self.work_dir)
 
+    def _is_working_dir_empty(self):
+        work_dir_contents = filter(lambda entry: not entry in [".", "..", ".git"], os.listdir(self.work_dir))
+        return len(work_dir_contents) == 0
+        
+    def _need_checkout(self, branch=None, commit=None, force=False):
+        debug("_need_checkout: force={}", force)
+        if force or self._is_working_dir_empty():
+            return True
+        if branch is not None:
+            cur_branch = self._get_branch()
+            debug("_need_checkout: cur_branch={} required={}", cur_branch, branch)
+            if cur_branch != branch:
+                return True
+        if commit is not None:
+            cur_commit = self._get_commit()
+            debug("_need_checkout: cur_commit={} required={}", cur_commit, commit)
+            if cur_commit != commit:
+                return True
+        return False
+
     def checkout(self, branch=None, commit=None):
+        if not self._need_checkout(branch=branch, commit=commit):
+            return
         branch_flag = None if branch is None else "-B"
         branch_name = None if branch is None else self._branch_name_from_ref(branch)
         commit_flag = None if commit is None else commit
