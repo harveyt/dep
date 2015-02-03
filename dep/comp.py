@@ -193,6 +193,13 @@ class RealComponent(BasicComponent):
         self.read_dep_tree()
         self.record_dep_tree()
         self.write_dep_tree_config()
+
+    def list_dependencies(self):
+        self._validate_has_repo()
+        self.read_dep_tree()
+        for top in self.root.top_components:
+            print top.name
+        print self.root.name
         
     def _debug_dump_content(self, prefix=""):
         debug("{}parent_section = {}", prefix, self.parent_section)
@@ -201,6 +208,8 @@ class RealComponent(BasicComponent):
 
 class RootComponent(RealComponent):
     def __init__(self):
+        if opts.args.local:
+            error("--local flag not yet supported")
         path = find_root_work_dir()
         if path is None:
             path = os.getcwd()
