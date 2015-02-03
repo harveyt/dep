@@ -215,6 +215,15 @@ class RealComponent(BasicComponent):
         for top in self.root.top_components:
             top.run_command(cmd)
         self.root.run_command(cmd)
+
+    def status_dependencies(self):
+        self._validate_has_repo()
+        self.read_dep_tree()
+        status("M  Branch           Commit                                    Ahead Behind Path")
+        status("-- ---------------  ---------------------------------------- ------ ------ -----------------------")
+        for top in self.root.top_components:
+            top.repository.status_brief(top.rel_path)
+        self.root.repository.status_brief(".")
         
     def _debug_dump_content(self, prefix=""):
         debug("{}parent_section = {}", prefix, self.parent_section)
