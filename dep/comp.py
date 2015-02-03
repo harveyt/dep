@@ -37,8 +37,13 @@ class BasicComponent:
         debug("{}abs_path = {}", prefix, self.abs_path)
         debug("{}parent = {}", prefix, str(self.parent))
         debug("{}root = {}", prefix, str(self.root))
-        debug("{}children[] = {}", prefix, self.children)        
         self._debug_dump_content(prefix)
+        debug("{}children[] = {{", prefix)
+        for i, c in enumerate(self.children):
+            if i > 0:
+                debug("{},".format(prefix))
+            c.debug_dump("{}[{}] ".format(prefix, i))
+        debug("{}}}", prefix)
 
 class RealComponent(BasicComponent):
     def __init__(self, name, path, parent, url=None):
@@ -89,6 +94,12 @@ class RealComponent(BasicComponent):
         self._parent_section = self.parent.config.add_section("dep", self.name)
         self.parent_section["relpath"] = self.rel_path
 
+    def _record_to_parent_config(self):
+        if not self.parent_section:
+            return
+        self.repository.record()
+        self.repository.write_state_to_config_section(self.parent_section)
+
     def _build_dep_tree_recurse(self, refresh=False):
         if not self._has_config():
             return
@@ -107,6 +118,20 @@ class RealComponent(BasicComponent):
         self._build_dep_tree_recurse(True)
         self.debug_dump("refresh: ")
 
+    def _record_dep_tree_recurse(self):
+        for child in self.children:
+            child._record_dep_tree_recurse()
+        self._record_to_parent_config()
+
+    def _record_dep_tree(self):
+        self._record_dep_tree_recurse()
+        self.debug_dump("record: ")
+
+    def _write_dep_tree_config(self):
+        for child in self.children:
+            child._write_dep_tree_config()
+        self._write_config()
+        
     def _create_children_from_config(self):
         self.children = []
         for section in self.config.sections_named("dep"):
@@ -127,16 +152,25 @@ class RealComponent(BasicComponent):
         new_dep = TopComponent.create_from_url(url, self)
         verbose("Adding dependency {} to {}", new_dep, self)
         new_dep._add_to_parent_config()
-        new_dep.repository.refresh()        
-        new_dep.repository.record()
-        new_dep.repository.write_state_to_config_section(new_dep.parent_section)
-        self.debug_dump("add post: ")        
-        self.repository.add_ignore(new_dep.rel_path)
-        self._write_config()
+        new_dep.repository.refresh()
+        new_dep._record_to_parent_config()
+        self.debug_dump("add post: ")
+        self.repository.add_ignore(new_dep.rel_path)        
+        self._refresh_dep_tree()
+        self._record_dep_tree()
+        self._write_dep_tree_config()
 
     def refresh_dependencies(self):
         self._validate_has_repo()
+        verbose("Refreshing dependencies under {}", self)        
         self._refresh_dep_tree()
+
+    def record_dependencies(self):
+        self._validate_has_repo()
+        verbose("Recording dependencies under {}", self)        
+        self._read_dep_tree()
+        self._record_dep_tree()
+        self._write_dep_tree_config()
         
     def _debug_dump_content(self, prefix=""):
         debug("{}parent_section = {}", prefix, self.parent_section)

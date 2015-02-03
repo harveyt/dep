@@ -4,8 +4,8 @@ TESTS	= test-init \
 	  test-add-fails-without-vcs \
 	  test-config-work-dir \
 	  test-refresh-simple \
-	  test-refresh-older
-# test-record-simple
+	  test-refresh-older \
+	  test-record-simple
 # test-build-two-level
 # test-list
 # test-build-two-level-shared
