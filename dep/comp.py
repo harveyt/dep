@@ -211,6 +211,24 @@ class RootComponent(RealComponent):
     def _find_top_component(self, name):
         return next((c for c in self.top_components if c.name == name), None)
 
+    def _create_top_component(self, name, section, url):
+        parent = self
+        if section:
+            path = section["relpath"]
+            url = section["url"]
+        else:
+            dep_dir = parent.config["core"]["default-dep-dir"]
+            path = os.path.join(dep_dir, name)
+        return TopComponent(name, path, parent, url)
+
+    def _create_link_component(self, name, section, parent, top_component):
+        if section:
+            path = section["relpath"]
+        else:
+            dep_dir = parent.config["core"]["default-dep-dir"]
+            path = os.path.join(dep_dir, name)
+        return LinkComponent(name, path, parent, top_component)
+
     def _find_or_create_component(self, section=None, url=None, parent=None):
         if parent is None:
             error("Must pass parent to _find_or_create_component")
@@ -218,19 +236,15 @@ class RootComponent(RealComponent):
             error("Must pass section or url to _find_or_create_component")
         if section:
             name = section.subname
-            path = section["relpath"]
-            url = section["url"]
         else:
             name = scm.Repository.determine_name_from_url(url)
-            dep_dir = parent.config["core"]["default-dep-dir"]
-            path = os.path.join(dep_dir, name)
         top = self._find_top_component(name)
         if top is None:
-            top = TopComponent(name, path, parent, url)
+            top = self._create_top_component(name, section, url)
         if parent is self:
             comp = top
         else:
-            comp = LinkComponent(name, path, parent, top)
+            comp = self._create_link_component(name, section, parent, top)
         parent.add_child(comp)
         return comp
 
