@@ -25,7 +25,6 @@ test_exec git commit -m "Modified A."
 test_exec git push
 A_new_commit=$(test_repo_git_commit A)
 
-# Now record the state which should change from older commit to newer.
 cd $ROOT_path
 test_file_contains .depconfig "[core]
 	default-dep-dir = dep
@@ -37,6 +36,17 @@ test_file_contains .depconfig "[core]
 	branch = refs/heads/master
 	commit = $A_old_commit
 "
+
+# Check status makes sense
+ROOT_old_commit=$(test_repo_git_commit ROOT)
+test_output_from_exec "\
+M  Branch           Commit                                    Ahead Behind Path
+-- ---------------  ---------------------------------------- ------ ------ -----------------------
+   master          *$A_new_commit      0      0 dep/A
+   master           $ROOT_old_commit      0      0 .
+" $DEP_PATH status
+
+# Now record the state which should change from older commit to newer.
 test_exec $DEP record
 test_file_contains .depconfig "[core]
 	default-dep-dir = dep
