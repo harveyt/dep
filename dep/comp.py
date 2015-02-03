@@ -20,6 +20,9 @@ class BasicComponent:
     def __str__(self):
         return "{} '{}'".format(self.__class__.__name__, self.name)
 
+    def _has_config(self):
+        return False
+    
     def _read_config(self):
         pass
 
@@ -85,8 +88,8 @@ class BasicComponent:
         debug("{}name = {}", prefix, self.name)
         debug("{}rel_path = {}", prefix, self.rel_path)
         debug("{}abs_path = {}", prefix, self.abs_path)
-        debug("{}parent = {}", prefix, str(self.parent))
-        debug("{}root = {}", prefix, str(self.root))
+        debug("{}parent = {}", prefix, repr(self.parent))
+        debug("{}root = {}", prefix, repr(self.root))
         self._debug_dump_content(prefix)
         debug("{}children[] = {{", prefix)
         for i, c in enumerate(self.children):
@@ -175,7 +178,7 @@ class RealComponent(BasicComponent):
         new_dep._record_to_parent_config()
         self.debug_dump("add post: ")
         self.repository.add_ignore(new_dep.rel_path)        
-        # self.refresh_dep_tree()
+        self.refresh_dep_tree()
         self.record_dep_tree()
         self.write_dep_tree_config()
 
@@ -233,7 +236,12 @@ class RootComponent(RealComponent):
 
     def _debug_dump_content(self, prefix=""):
         RealComponent._debug_dump_content(self, prefix)
-        debug("{}top_components = {}", prefix, self.top_components)
+        debug("{}top_components[] = {{", prefix)
+        for i, c in enumerate(self.top_components):
+            if i > 0:
+                debug("{},".format(prefix))
+            c.debug_dump("{}[{}] ".format(prefix, i))
+        debug("{}}}", prefix)
 
 class TopComponent(RealComponent):
     def __init__(self, name, path, parent, url):
@@ -245,6 +253,9 @@ class LinkComponent(BasicComponent):
         BasicComponent.__init__(self, name, path, parent)
         self.top_component = top_component
 
+    def _has_config(self):
+        return self.top_component._has_config()
+        
     def _read_config(self):
         self.top_component._read_config()
 
@@ -261,5 +272,5 @@ class LinkComponent(BasicComponent):
         return self.top_component._get_child_config_sections()
         
     def _debug_dump_content(self, prefix=""):
-        RealComponent._debug_dump_content(self, prefix)        
-        debug("{}top_component = {}", self.top_component)
+        BasicComponent._debug_dump_content(self, prefix)        
+        debug("{}top_component = {}", prefix, repr(self.top_component))
