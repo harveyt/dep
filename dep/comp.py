@@ -298,6 +298,11 @@ class LinkComponent(BasicComponent):
     def __init__(self, name, path, parent, top_component):
         BasicComponent.__init__(self, name, path, parent)
         self.top_component = top_component
+        self._move_top_component_to_front()
+
+    def _move_top_component_to_front(self):
+        self.root.top_components.remove(self.top_component)
+        self.root.top_components.insert(0, self.top_component)
 
     def _read_config(self):
         self.top_component._read_config()
