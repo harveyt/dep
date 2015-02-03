@@ -1,11 +1,17 @@
-# --------------------------------------------------------------------------------
-# Command: commit
 #
-def command_commit(args):
-    args.cmd = ["git", "commit"]
-    command_foreach(args)
+# Commit Command
+# ==============
+#
+# %%LICENSE%%
+#
+from dep import *
+from dep.helpers import *
 
-parser_commit = subparsers.add_parser("commit",
+def command_commit(args):
+    root = comp.RootComponent()
+    root.foreach_dependency(["git", "commit"])
+
+parser_commit = opts.subparsers.add_parser("commit",
                                       help="Commit changes for each dependency",
                                       description="Commit changes for each dependency")
 parser_commit.set_defaults(func=command_commit)

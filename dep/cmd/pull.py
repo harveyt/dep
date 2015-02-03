@@ -1,11 +1,17 @@
-# --------------------------------------------------------------------------------
-# Command: pull
 #
-def command_pull(args):
-    args.cmd = ["git", "pull"]
-    command_foreach(args)
+# Pull Command
+# ==============
+#
+# %%LICENSE%%
+#
+from dep import *
+from dep.helpers import *
 
-parser_pull = subparsers.add_parser("pull",
-                                     help="Pull changes for each dependency",
-                                     description="Pull changes for each dependency")
-parser_pull.set_defaults(func=command_pull)
+def command_fetch(args):
+    root = comp.RootComponent()
+    root.foreach_dependency(["git", "fetch"])
+
+parser_fetch = opts.subparsers.add_parser("fetch",
+                                      help="Pull changes for each dependency",
+                                      description="Pull changes for each dependency")
+parser_fetch.set_defaults(func=command_fetch)
