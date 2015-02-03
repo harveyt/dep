@@ -16,15 +16,65 @@ class BasicComponent:
         self.parent = parent
         self.root = parent.root if parent else self
         self.children = []
-        if parent:
-            parent._add_child(self)
 
     def __str__(self):
         return "{} '{}'".format(self.__class__.__name__, self.name)
 
-    def _add_child(self, child):
+    def _read_config(self):
+        pass
+
+    def _write_config(self):
+        pass
+
+    def _refresh_work_dir(self):
+        pass
+
+    def _record_to_parent_config(self):
+        pass
+
+    def _get_child_config_sections(self):
+        return None
+
+    def add_child(self, child):
         self.children.append(child)
 
+    def _create_children_from_config(self):
+        self.children = []
+        for section in self._get_child_config_sections():
+            new_dep = self.root._find_or_create_component(section=section, parent=self)
+        
+    def _build_dep_tree_recurse(self, refresh=False):
+        if not self._has_config():
+            return
+        self._read_config()
+        self._create_children_from_config()
+        for child in self.children:
+            if refresh:
+                child._refresh_work_dir()
+            child._build_dep_tree_recurse(refresh)
+
+    def read_dep_tree(self):
+        self._build_dep_tree_recurse()
+        self.debug_dump("read: ")
+
+    def refresh_dep_tree(self):
+        self._build_dep_tree_recurse(True)
+        self.debug_dump("refresh: ")
+
+    def _record_dep_tree_recurse(self):
+        for child in self.children:
+            child._record_dep_tree_recurse()
+        self._record_to_parent_config()
+
+    def record_dep_tree(self):
+        self._record_dep_tree_recurse()
+        self.debug_dump("record: ")
+
+    def write_dep_tree_config(self):
+        for child in self.children:
+            child.write_dep_tree_config()
+        self._write_config()
+        
     def _debug_dump_content(self, prefix):
         pass
 
@@ -68,14 +118,6 @@ class RealComponent(BasicComponent):
     def _has_config(self):
         return self.config.exists()
 
-    def _has_repo(self):
-        return self.repository is not None and self.repository.vcs != "file"
-
-    def _validate_has_repo(self):
-        if self._has_repo():
-            return
-        error("{} does not have a non-file based SCM repository", self)
-        
     def _read_config(self):
         if self.config.need_read:
             self.config.read()
@@ -86,7 +128,15 @@ class RealComponent(BasicComponent):
             self.config.write()
             self.repository.post_edit(self.config.path)
             self.debug_dump("write: ")
-            
+
+    def _has_repo(self):
+        return self.repository is not None and self.repository.vcs != "file"
+
+    def _validate_has_repo(self):
+        if self._has_repo():
+            return
+        error("{} does not have a non-file based SCM repository", self)
+        
     def _add_to_parent_config(self):
         if self.parent_section:
             error("Cannot add {} to {}, already exists", self, self.parent)
@@ -94,49 +144,18 @@ class RealComponent(BasicComponent):
         self._parent_section = self.parent.config.add_section("dep", self.name)
         self.parent_section["relpath"] = self.rel_path
 
+    def _refresh_work_dir(self):
+        self.repository.refresh()        
+        
     def _record_to_parent_config(self):
         if not self.parent_section:
             return
         self.repository.record()
         self.repository.write_state_to_config_section(self.parent_section)
 
-    def _build_dep_tree_recurse(self, refresh=False):
-        if not self._has_config():
-            return
-        self._read_config()
-        self._create_children_from_config()
-        for child in self.children:
-            if refresh:
-                child.repository.refresh()
-            child._build_dep_tree_recurse(refresh)
-
-    def _read_dep_tree(self):
-        self._build_dep_tree_recurse()
-        self.debug_dump("read: ")
-
-    def _refresh_dep_tree(self):
-        self._build_dep_tree_recurse(True)
-        self.debug_dump("refresh: ")
-
-    def _record_dep_tree_recurse(self):
-        for child in self.children:
-            child._record_dep_tree_recurse()
-        self._record_to_parent_config()
-
-    def _record_dep_tree(self):
-        self._record_dep_tree_recurse()
-        self.debug_dump("record: ")
-
-    def _write_dep_tree_config(self):
-        for child in self.children:
-            child._write_dep_tree_config()
-        self._write_config()
+    def _get_child_config_sections(self):
+        return self.config.sections_named("dep")
         
-    def _create_children_from_config(self):
-        self.children = []
-        for section in self.config.sections_named("dep"):
-            new_dep = self.root._find_or_create_component(section=section, parent=self)
-            
     def initialize_new_config(self):
         verbose("Initializing {}", self)
         validate_file_notexists(self.config.path)
@@ -148,7 +167,7 @@ class RealComponent(BasicComponent):
 
     def add_new_dependency(self, url):
         self._validate_has_repo()
-        self._read_dep_tree()
+        self.read_dep_tree()
         new_dep = self.root._find_or_create_component(url=url, parent=self)
         verbose("Adding dependency {} to {}", new_dep, self)
         new_dep._add_to_parent_config()
@@ -156,21 +175,21 @@ class RealComponent(BasicComponent):
         new_dep._record_to_parent_config()
         self.debug_dump("add post: ")
         self.repository.add_ignore(new_dep.rel_path)        
-        self._refresh_dep_tree()
-        self._record_dep_tree()
-        self._write_dep_tree_config()
+        # self.refresh_dep_tree()
+        self.record_dep_tree()
+        self.write_dep_tree_config()
 
     def refresh_dependencies(self):
         self._validate_has_repo()
         verbose("Refreshing dependencies under {}", self)        
-        self._refresh_dep_tree()
+        self.refresh_dep_tree()
 
     def record_dependencies(self):
         self._validate_has_repo()
         verbose("Recording dependencies under {}", self)        
-        self._read_dep_tree()
-        self._record_dep_tree()
-        self._write_dep_tree_config()
+        self.read_dep_tree()
+        self.record_dep_tree()
+        self.write_dep_tree_config()
         
     def _debug_dump_content(self, prefix=""):
         debug("{}parent_section = {}", prefix, self.parent_section)
@@ -206,10 +225,14 @@ class RootComponent(RealComponent):
         if top is None:
             top = TopComponent(name, path, parent, url)
         if parent is self:
-            return top
-        return LinkComponent(name, path, parent, top)
+            comp = top
+        else:
+            comp = LinkComponent(name, path, parent, top)
+        parent.add_child(comp)
+        return comp
 
     def _debug_dump_content(self, prefix=""):
+        RealComponent._debug_dump_content(self, prefix)
         debug("{}top_components = {}", prefix, self.top_components)
 
 class TopComponent(RealComponent):
@@ -219,8 +242,24 @@ class TopComponent(RealComponent):
         
 class LinkComponent(BasicComponent):
     def __init__(self, name, path, parent, top_component):
-        BasicComponent.__init__(name, path, parent)
+        BasicComponent.__init__(self, name, path, parent)
         self.top_component = top_component
+
+    def _read_config(self):
+        self.top_component._read_config()
+
+    def _write_config(self):
+        self.top_component._write_config()
+
+    def _refresh_work_dir(self):
+        self.top_component._refresh_work_dir()
+
+    def _record_to_parent_config(self):
+        self.top_component._record_to_parent_config()
+
+    def _get_child_config_sections(self):
+        return self.top_component._get_child_config_sections()
         
     def _debug_dump_content(self, prefix=""):
+        RealComponent._debug_dump_content(self, prefix)        
         debug("{}top_component = {}", self.top_component)
