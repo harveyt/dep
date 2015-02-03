@@ -3,7 +3,7 @@
 TESTS=$PWD
 ROOT=$PWD/..
 DEP_PATH="$ROOT/dep.py"
-DEP="$DEP_PATH -D -v"
+DEP="$DEP_PATH -v"
 TEST_NAME="$(basename $0)"
 TMP_DIR=$TESTS/tmp/$TEST_NAME
 TMP_WORK=$TMP_DIR/work
