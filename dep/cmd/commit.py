@@ -9,9 +9,10 @@ from dep.helpers import *
 
 def command_commit(args):
     root = comp.RootComponent()
-    root.foreach_dependency(["git", "commit"])
+    root.foreach_dependency(["git", "commit"] + opts.rest_args)
 
 parser_commit = opts.subparsers.add_parser("commit",
                                       help="Commit changes for each dependency",
                                       description="Commit changes for each dependency")
 parser_commit.set_defaults(func=command_commit)
+opts.allow_rest.append("commit")
