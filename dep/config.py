@@ -137,11 +137,13 @@ class ConfigSection:
         raise KeyError("Unknown variable '{}.{}' in {}".format(self.fullname, key, self.config))
 
     def __setitem__(self, key, value):
-        self.config.need_write = True
         for v in self.vars:
             if v.name == key:
-                v.value = value
+                if v.value != value:
+                    v.value = value
+                    self.config.need_write = True
                 return
+        self.config.need_write = True            
         ConfigVar(self, key, value)
 
     def has_key(self, key):
