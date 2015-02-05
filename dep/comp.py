@@ -104,22 +104,8 @@ class BasicComponent:
 class RealComponent(BasicComponent):
     def __init__(self, name, path, parent, url=None):
         BasicComponent.__init__(self, name, path, parent)
-        self._parent_section = None
         self.config = config.Config(os.path.join(self.abs_path, ".depconfig"))
         self.repository = scm.Repository.create(self.abs_path, url)
-
-    @property
-    def parent_section(self):
-        if self._parent_section is None:
-            self._rebuild_parent_section()
-        return self._parent_section
-
-    def _rebuild_parent_section(self):
-        if self.parent is None:
-            return
-        if not self.parent.config.has_section("dep", self.name):
-            return
-        self._parent_section = self.parent.config["dep.{}".format(self.name)]
         
     def _read_config(self):
         if self.config.need_read:
@@ -141,27 +127,34 @@ class RealComponent(BasicComponent):
         if self._has_repo():
             return
         error("{} does not have a non-file based SCM repository", self)
+
+    def _find_child_config_section(self, child_name):
+        if not self.config.has_section("dep", child_name):
+            return None
+        return self.config["dep.{}".format(child_name)]
         
     def _add_to_parent_config(self):
-        if self.parent_section:
+        if self.parent._find_child_config_section(self.name):
             error("Cannot add {} to {}, already exists", self, self.parent)
             return
-        self._parent_section = self.parent.config.add_section("dep", self.name)
-        self.parent_section["relpath"] = self.rel_path
+        parent_section = self.parent.config.add_section("dep", self.name)
+        parent_section["relpath"] = self.rel_path
         
     def _read_repository_state_from_parent_config(self):
-        if self.parent_section is None:
-            return
-        self.repository.read_state_from_config_section(self.parent_section)
+        if self.parent:
+            parent_section = self.parent._find_child_config_section(self.name)
+            if parent_section:
+                self.repository.read_state_from_config_section(parent_section)
         
     def _refresh_work_dir(self):
-        self.repository.refresh()        
+        self.repository.refresh()
         
     def _record_to_parent_config(self):
-        if not self.parent_section:
-            return
-        self.repository.record()
-        self.repository.write_state_to_config_section(self.parent_section)
+        if self.parent:        
+            parent_section = self.parent._find_child_config_section(self.name)
+            if parent_section:
+                self.repository.record()
+                self.repository.write_state_to_config_section(parent_section)
 
     def _get_child_config_sections(self):
         return self.config.sections_named("dep")
@@ -225,7 +218,6 @@ class RealComponent(BasicComponent):
         self.root.repository.status_brief(".")
         
     def _debug_dump_content(self, prefix=""):
-        debug("{}parent_section = {}", prefix, self.parent_section)
         self.config.debug_dump(prefix)
         self.repository.debug_dump(prefix)        
 
