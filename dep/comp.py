@@ -15,6 +15,7 @@ class BasicComponent:
         self.abs_path = os.path.join(parent.abs_path, path) if parent else path
         self.parent = parent
         self.root = parent.root if parent else self
+        self.top_component = self
         self.children = []
 
     def __str__(self):
@@ -93,6 +94,7 @@ class BasicComponent:
         debug("{}abs_path = {}", prefix, self.abs_path)
         debug("{}parent = {}", prefix, repr(self.parent))
         debug("{}root = {}", prefix, repr(self.root))
+        debug("{}top_component = {}", prefix, repr(self.top_component))
         self._debug_dump_content(prefix)
         debug("{}children[] = {{", prefix)
         for i, c in enumerate(self.children):
@@ -309,11 +311,15 @@ class LinkComponent(BasicComponent):
             make_relative_symlink(self.top_component.abs_path, self.abs_path)
 
     def _record_to_parent_config(self):
-        self.top_component._record_to_parent_config()
+        if self.parent:
+            top_parent = self.parent.top_component
+            top_parent_section = top_parent._find_child_config_section(self.name)
+            if top_parent_section:
+                self.top_component.repository.record()
+                self.top_component.repository.write_state_to_config_section(top_parent_section)
 
     def _get_child_config_sections(self):
         return self.top_component._get_child_config_sections()
         
     def _debug_dump_content(self, prefix=""):
         BasicComponent._debug_dump_content(self, prefix)        
-        debug("{}top_component = {}", prefix, repr(self.top_component))
