@@ -9,10 +9,19 @@ from dep.helpers import *
 
 def command_foreach(args):
     root = comp.RootComponent()
-    root.foreach_dependency(opts.rest_args)
+    root.foreach_dependency(opts.rest_args,
+                            record=args.record,
+                            refresh=args.refresh,
+                            only_modified=args.only_modified)
 
 parser_foreach = opts.subparsers.add_parser("foreach",
                                             help="Run a shell command for each dependency",
                                             description="Run a shell command for each dependency.")
+parser_foreach.add_argument("--record", action="store_true",
+                           help="Run record operation after each command run")
+parser_foreach.add_argument("--refresh", action="store_true",
+                           help="Run refresh operation after each command run")
+parser_foreach.add_argument("--only-modified", action="store_true",
+                           help="Run command only on repositories with local modifications")
 parser_foreach.set_defaults(func=command_foreach)
 opts.allow_rest.append("foreach")

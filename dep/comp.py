@@ -81,7 +81,7 @@ class BasicComponent:
         opts.args.quiet = False
         run(*cmd, shell=True, cwd=self.abs_path)
         opts.args.quiet = old_quiet
-        
+
     def _debug_dump_content(self, prefix):
         pass
 
@@ -203,12 +203,27 @@ class RealComponent(BasicComponent):
             print top.name
         print self.root.name
 
-    def foreach_dependency(self, cmd):
+    def _foreach_pre(self, comp, kw):
+        if kw.get('only_modified') and not comp.repository.has_local_modifications():
+            return False
+        return True
+    
+    def _foreach_post(self, comp, kw):
+        if kw.get('record'):
+            self.record_dependencies()
+        if kw.get('refresh'):
+            self.refresh_dependencies()
+        
+    def foreach_dependency(self, cmd, **kw):
         self._validate_has_repo()
         self.read_dep_tree()
         for top in self.root.top_components:
-            top.run_command(cmd)
-        self.root.run_command(cmd)
+            if self._foreach_pre(top, kw):
+                top.run_command(cmd)
+                self._foreach_post(top, kw)
+        if self._foreach_pre(self.root, kw):
+            self.root.run_command(cmd)
+            self._foreach_post(self.root, kw)
 
     def status_dependencies(self):
         self._validate_has_repo()

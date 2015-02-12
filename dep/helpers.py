@@ -7,6 +7,7 @@
 import sys
 import os
 import subprocess
+import re
 from dep import opts
 
 def get_program_path():
@@ -50,10 +51,21 @@ def validate_dir_notexists(dir):
     if os.path.exists(dir):
         error("Directory '{}' already exists", dir)
 
+def quote(arg):
+    if re.search(r'\s', arg):
+        if '"' in arg:
+            return "'{}'".format(arg)
+        else:
+            return '"{}"'.format(arg)
+    return arg
+
+def quote_cmd(cmd):
+    return ' '.join([quote(arg) for arg in cmd])
+
 def run(*cmd, **kw):
-    status = 0
+    exit_status = 0
     cmd = filter(None, cmd)
-    cmd_text = ' '.join(cmd)
+    cmd_text = quote_cmd(cmd)
     cwd = kw.get('cwd')
     if cwd == os.getcwd():
         cwd = None
@@ -66,6 +78,7 @@ def run(*cmd, **kw):
         if cwd:
             verbose("-> popd")
     if opts.args.dry_run and not query and not pipe:
+        status("{}", cmd_text)
         return
     try:
         if query:
@@ -74,11 +87,11 @@ def run(*cmd, **kw):
             return subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=cwd)            
         elif opts.args.quiet:
             with open(os.devnull, "wb") as dev_null:
-                status = subprocess.call(cmd, stdout=dev_null, cwd=cwd)
+                exit_status = subprocess.call(cmd, stdout=dev_null, cwd=cwd)
         else:
-            status = subprocess.call(cmd, cwd=cwd)
-        if status != 0:
-            error("Execution of '{}' returned exit status {}", cmd_text, status)
+            exit_status = subprocess.call(cmd, cwd=cwd)
+        if exit_status != 0:
+            error("Execution of '{}' returned exit status {}", cmd_text, exit_status)
     except OSError, e:
         error("Cannot execute '{}': {}'", cmd_text, e)
     except Exception, e:
