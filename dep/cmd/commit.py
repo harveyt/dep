@@ -9,6 +9,7 @@ from dep.helpers import *
 
 def command_commit(args):
     root = comp.RootComponent()
+    root.foreach_dependency(["git", "add", "--all", "."])
     root.foreach_dependency(["git", "commit"] + opts.rest_args,
                             record=True, only_modified=True)
 
