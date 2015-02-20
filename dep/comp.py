@@ -201,7 +201,8 @@ class RealComponent(BasicComponent):
         self.read_dep_tree()
         for top in self.root.top_components:
             print top.name
-        print self.root.name
+        if opts.args.list_root is True:
+            print self.root.name
 
     def _foreach_pre(self, comp, kw):
         if kw.get('only_modified') and not comp.repository.has_local_modifications():
