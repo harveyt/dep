@@ -18,4 +18,6 @@ parser_list.add_argument("--no-root", dest="list_root", action="store_false",
                          help="Do not include the root project in list of dependencies")
 parser_list.add_argument("--root", dest="list_root", action="store_true",
                          help="Include the root project in list of dependencies")
+parser_list.add_argument("--children", dest="list_children", action="store_true",
+                         help="List only child dependencies of the local working directory")
 parser_list.set_defaults(func=command_list)

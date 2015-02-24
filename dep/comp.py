@@ -82,6 +82,25 @@ class BasicComponent:
         run(*cmd, shell=True, cwd=self.abs_path)
         opts.args.quiet = old_quiet
 
+    def find_local_component(self):
+        abs_path = find_local_work_dir()
+        return self.find_component_by_abs_path(abs_path)
+        
+    def find_component_by_abs_path(self, abs_path):
+        comp = self._find_component_by_abs_path(abs_path)
+        if comp is None:
+            error("Cannot find component with path '{}'", abs_path)
+        return comp
+
+    def _find_component_by_abs_path(self, abs_path):
+        if self.abs_path == abs_path:
+            return self
+        for c in self.children:
+            comp = c._find_component_by_abs_path(abs_path)
+            if comp is not None:
+                return comp
+        return None
+        
     def _debug_dump_content(self, prefix):
         pass
 
@@ -199,10 +218,15 @@ class RealComponent(BasicComponent):
     def list_dependencies(self):
         self._validate_has_repo()
         self.read_dep_tree()
-        for top in self.root.top_components:
-            print top.name
-        if opts.args.list_root is True:
-            print self.root.name
+        if opts.args.list_children:
+            local = self.find_local_component()
+            for child in local.children:
+                print child.name
+        else:
+            for top in self.root.top_components:
+                print top.name
+            if opts.args.list_root:
+                print self.root.name
 
     def _foreach_pre(self, comp, kw):
         if kw.get('only_modified') and not comp.repository.has_local_modifications():
