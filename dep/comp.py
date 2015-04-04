@@ -348,7 +348,11 @@ class LinkComponent(BasicComponent):
         self.top_component._refresh_work_dir()
         if not os.path.isdir(self.abs_path):
             status("Linking {} to {}", self.top_component, self)
-            make_relative_symlink(self.top_component.abs_path, self.abs_path)
+            source_abs_path = self.top_component.abs_path
+            dest_abs_path = os.path.realpath(self.abs_path)
+            debug("source_abs_path={}", source_abs_path)
+            debug("dest_abs_path={}", dest_abs_path)
+            make_relative_symlink(source_abs_path, dest_abs_path)
 
     def _record_to_parent_config(self):
         if self.parent:
