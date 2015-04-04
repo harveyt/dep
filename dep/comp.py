@@ -13,6 +13,7 @@ class BasicComponent:
         self.name = name
         self.rel_path = path
         self.abs_path = os.path.join(parent.abs_path, path) if parent else path
+        self.real_path = os.path.realpath(self.abs_path)
         self.parent = parent
         self.root = parent.root if parent else self
         self.top_component = self
@@ -83,20 +84,20 @@ class BasicComponent:
         opts.args.quiet = old_quiet
 
     def find_local_component(self):
-        abs_path = find_local_work_dir()
-        return self.find_component_by_abs_path(abs_path)
+        real_path = find_local_work_dir()
+        return self.find_component_by_real_path(real_path)
         
-    def find_component_by_abs_path(self, abs_path):
-        comp = self._find_component_by_abs_path(abs_path)
+    def find_component_by_real_path(self, real_path):
+        comp = self._find_component_by_real_path(real_path)
         if comp is None:
-            error("Cannot find component with path '{}'", abs_path)
+            error("Cannot find component with path '{}'", real_path)
         return comp
 
-    def _find_component_by_abs_path(self, abs_path):
-        if self.abs_path == abs_path:
+    def _find_component_by_real_path(self, real_path):
+        if self.real_path == real_path:
             return self
         for c in self.children:
-            comp = c._find_component_by_abs_path(abs_path)
+            comp = c._find_component_by_real_path(real_path)
             if comp is not None:
                 return comp
         return None
@@ -111,6 +112,7 @@ class BasicComponent:
         debug("{}name = {}", prefix, self.name)
         debug("{}rel_path = {}", prefix, self.rel_path)
         debug("{}abs_path = {}", prefix, self.abs_path)
+        debug("{}real_path = {}", prefix, self.real_path)
         debug("{}parent = {}", prefix, repr(self.parent))
         debug("{}root = {}", prefix, repr(self.root))
         debug("{}top_component = {}", prefix, repr(self.top_component))
@@ -348,8 +350,8 @@ class LinkComponent(BasicComponent):
         self.top_component._refresh_work_dir()
         if not os.path.isdir(self.abs_path):
             status("Linking {} to {}", self.top_component, self)
-            source_abs_path = self.top_component.abs_path
-            dest_abs_path = os.path.realpath(self.abs_path)
+            source_abs_path = self.top_component.real_path
+            dest_abs_path = self.real_path
             debug("source_abs_path={}", source_abs_path)
             debug("dest_abs_path={}", dest_abs_path)
             make_relative_symlink(source_abs_path, dest_abs_path)
