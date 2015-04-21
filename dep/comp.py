@@ -276,6 +276,17 @@ class RootComponent(RealComponent):
         RealComponent.__init__(self, name, path, None)
         self.top_components = []
 
+    def _build_dep_tree_recurse(self, refresh=False):
+        RealComponent._build_dep_tree_recurse(self, refresh)
+        # Ensure all top components are populated with explicit children
+        for top in self.top_components:
+            if refresh:
+                top._refresh_work_dir()
+            top._build_dep_tree_recurse(refresh)
+        # Ensure all top components are populated with implicit children
+        for top in self.top_components:
+            top._build_top_implicit_recurse(top, refresh)
+
     def _find_top_component(self, name):
         return next((c for c in self.top_components if c.name == name), None)
 
@@ -329,6 +340,39 @@ class TopComponent(RealComponent):
     def __init__(self, name, path, parent, url):
         RealComponent.__init__(self, name, path, parent, url)
         parent.root.top_components.insert(0, self)
+        self.implicit_children = []
+
+    def _debug_dump_content(self, prefix=""):
+        RealComponent._debug_dump_content(self, prefix)
+        debug("{}implicit_children[] = {{", prefix)
+        for i, c in enumerate(self.implicit_children):
+            if i > 0:
+                debug("{},".format(prefix))
+            c.debug_dump("{}[{}] ".format(prefix, i))
+        debug("{}}}", prefix)
+
+    def _build_top_implicit_recurse(self, comp, refresh):
+        debug("_build_top_implicit_recurse({}, {}, {})", self, comp, refresh)
+        for child in comp.children:
+            self._find_or_create_implicit_link(child, refresh)
+            self._build_top_implicit_recurse(child, refresh)
+
+    def _find_implicit_child(self, name):
+        return next((c for c in self.implicit_children if c.name == name), None)
+
+    def _find_or_create_implicit_link(self, comp, refresh):
+        child = self._find_implicit_child(comp.name)
+        if child is not None:
+            return
+        name = comp.name
+        dep_dir = self.config["core"]["default-dep-dir"]
+        path = os.path.join(dep_dir, name)
+        parent = self
+        top = comp.top_component
+        child = LinkComponent(name, path, parent, top)
+        self.implicit_children.append(child)
+        if refresh:
+            child._refresh_work_dir()
         
 class LinkComponent(BasicComponent):
     def __init__(self, name, path, parent, top_component):
