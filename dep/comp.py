@@ -74,14 +74,21 @@ class BasicComponent:
                 new_dep = self.root._find_or_create_component(url=url, parent=self, refresh=refresh)
                 self._add_implicit_child(new_dep)
 
+    def _build_dep_tree_top_order(self):
+        self.top_component._move_top_component_to_front()        
+        for child in self.children:
+            child._build_dep_tree_top_order()
+
     def read_dep_tree(self):
         self._build_dep_tree_recurse()
         self._build_dep_tree_implicit_recurse()
+        self._build_dep_tree_top_order()
         self.debug_dump("read: ")
 
     def refresh_dep_tree(self):
         self._build_dep_tree_recurse(True)
         self._build_dep_tree_implicit_recurse(True)
+        self._build_dep_tree_top_order()        
         self.debug_dump("refresh: ")
 
     def _record_dep_tree_recurse(self):
@@ -309,6 +316,9 @@ class RootComponent(RealComponent):
         RealComponent.__init__(self, name, path, None)
         self.top_components = []
 
+    def _move_top_component_to_front(self):
+        pass
+    
     def _build_dep_tree_implicit_recurse(self, refresh=False):
         RealComponent._build_dep_tree_implicit_recurse(self, refresh)        
         for child in self.top_components:
@@ -374,19 +384,18 @@ class TopComponent(RealComponent):
     def __init__(self, name, path, parent, url):
         RealComponent.__init__(self, name, path, parent, url)
         parent.root.top_components.insert(0, self)
+
+    def _move_top_component_to_front(self):
+        self.root.top_components.remove(self)
+        self.root.top_components.insert(0, self)
         
 class LinkComponent(BasicComponent):
     def __init__(self, name, path, parent, top_component):
         BasicComponent.__init__(self, name, path, parent)
         self.top_component = top_component
-        self._move_top_component_to_front()
 
     def _get_url(self):
         return self.top_component._get_url()
-        
-    def _move_top_component_to_front(self):
-        self.root.top_components.remove(self.top_component)
-        self.root.top_components.insert(0, self.top_component)
 
     def _read_config(self):
         self.top_component._read_config()
