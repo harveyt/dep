@@ -18,9 +18,13 @@ class BasicComponent:
         self.root = parent.root if parent else self
         self.top_component = self
         self.children = []
+        self.implicit_children = []
 
     def __str__(self):
         return "{} '{}' at {}".format(self.__class__.__name__, self.name, self.abs_path)
+
+    def _get_url(self):
+        return None
 
     def _read_config(self):
         pass
@@ -37,28 +41,47 @@ class BasicComponent:
     def _get_child_config_sections(self):
         return None
 
-    def add_child(self, child):
+    def _add_child(self, child):
         self.children.append(child)
 
-    def _create_children_from_config(self):
+    def _create_children_from_config(self, refresh=False):
         self.children = []
         for section in self._get_child_config_sections():
-            new_dep = self.root._find_or_create_component(section=section, parent=self)
+            new_dep = self.root._find_or_create_component(section=section, parent=self, refresh=refresh)
+            self._add_child(new_dep)
         
     def _build_dep_tree_recurse(self, refresh=False):
         self._read_config()
-        self._create_children_from_config()
+        self._create_children_from_config(refresh)
         for child in self.children:
-            if refresh:
-                child._refresh_work_dir()
             child._build_dep_tree_recurse(refresh)
+
+    def _find_implicit_child(self, name):
+        return next((c for c in self.implicit_children if c.name == name), None)
+            
+    def _add_implicit_child(self, child):
+        self.implicit_children.append(child)
+            
+    def _build_dep_tree_implicit_recurse(self, refresh=False):
+        self.implicit_children = self.children[:]
+        for child in self.children:
+            child._build_dep_tree_implicit_recurse(refresh)
+            for implicit_child in child.implicit_children:
+                comp = self._find_implicit_child(implicit_child.name)
+                if comp is not None:
+                    continue
+                url = implicit_child._get_url()
+                new_dep = self.root._find_or_create_component(url=url, parent=self, refresh=refresh)
+                self._add_implicit_child(new_dep)
 
     def read_dep_tree(self):
         self._build_dep_tree_recurse()
+        self._build_dep_tree_implicit_recurse()
         self.debug_dump("read: ")
 
     def refresh_dep_tree(self):
         self._build_dep_tree_recurse(True)
+        self._build_dep_tree_implicit_recurse(True)
         self.debug_dump("refresh: ")
 
     def _record_dep_tree_recurse(self):
@@ -123,13 +146,22 @@ class BasicComponent:
                 debug("{},".format(prefix))
             c.debug_dump("{}[{}] ".format(prefix, i))
         debug("{}}}", prefix)
-
+        debug("{}implicit_children[] = {{", prefix)
+        for i, c in enumerate(self.implicit_children):
+            if i > 0:
+                debug("{},".format(prefix))
+            c.debug_dump("{}[{}] ".format(prefix, i))
+        debug("{}}}", prefix)
+        
 class RealComponent(BasicComponent):
     def __init__(self, name, path, parent, url=None):
         BasicComponent.__init__(self, name, path, parent)
         self.config = config.Config(os.path.join(self.abs_path, ".depconfig"))
         self.repository = scm.Repository.create(self.abs_path, url)
-        
+
+    def _get_url(self):
+        return self.repository.url
+    
     def _read_config(self):
         if self.config.need_read:
             if self.config.exists():
@@ -195,6 +227,7 @@ class RealComponent(BasicComponent):
         self._validate_has_repo()
         self.read_dep_tree()
         new_dep = self.root._find_or_create_component(url=url, parent=self)
+        self._add_child(new_dep)        
         verbose("Adding dependency {} to {}", new_dep, self)
         new_dep._add_to_parent_config()
         new_dep.repository.refresh()
@@ -276,16 +309,10 @@ class RootComponent(RealComponent):
         RealComponent.__init__(self, name, path, None)
         self.top_components = []
 
-    def _build_dep_tree_recurse(self, refresh=False):
-        RealComponent._build_dep_tree_recurse(self, refresh)
-        # Ensure all top components are populated with explicit children
-        for top in self.top_components:
-            if refresh:
-                top._refresh_work_dir()
-            top._build_dep_tree_recurse(refresh)
-        # Ensure all top components are populated with implicit children
-        for top in self.top_components:
-            top._build_top_implicit_recurse(top, refresh)
+    def _build_dep_tree_implicit_recurse(self, refresh=False):
+        RealComponent._build_dep_tree_implicit_recurse(self, refresh)        
+        for child in self.top_components:
+            child._build_dep_tree_implicit_recurse(refresh)
 
     def _find_top_component(self, name):
         return next((c for c in self.top_components if c.name == name), None)
@@ -308,7 +335,7 @@ class RootComponent(RealComponent):
             path = os.path.join(dep_dir, name)
         return LinkComponent(name, path, parent, top_component)
 
-    def _find_or_create_component(self, section=None, url=None, parent=None):
+    def _find_or_create_component(self, section=None, url=None, parent=None, refresh=False):
         if parent is None:
             error("Must pass parent to _find_or_create_component")
         if (not section and not url) or (section and url):
@@ -318,13 +345,20 @@ class RootComponent(RealComponent):
         else:
             name = scm.Repository.determine_name_from_url(url)
         top = self._find_top_component(name)
+        new_top = False
         if top is None:
             top = self._create_top_component(name, section, url)
+            new_top = True
         if parent is self:
             comp = top
+            if new_top:
+                top._refresh_work_dir()
         else:
+            if new_top:
+                top._build_dep_tree_recurse(refresh)
             comp = self._create_link_component(name, section, parent, top)
-        parent.add_child(comp)
+            if refresh:
+                comp._refresh_work_dir()
         return comp
 
     def _debug_dump_content(self, prefix=""):
@@ -340,39 +374,6 @@ class TopComponent(RealComponent):
     def __init__(self, name, path, parent, url):
         RealComponent.__init__(self, name, path, parent, url)
         parent.root.top_components.insert(0, self)
-        self.implicit_children = []
-
-    def _debug_dump_content(self, prefix=""):
-        RealComponent._debug_dump_content(self, prefix)
-        debug("{}implicit_children[] = {{", prefix)
-        for i, c in enumerate(self.implicit_children):
-            if i > 0:
-                debug("{},".format(prefix))
-            c.debug_dump("{}[{}] ".format(prefix, i))
-        debug("{}}}", prefix)
-
-    def _build_top_implicit_recurse(self, comp, refresh):
-        debug("_build_top_implicit_recurse({}, {}, {})", self, comp, refresh)
-        for child in comp.children:
-            self._find_or_create_implicit_link(child, refresh)
-            self._build_top_implicit_recurse(child, refresh)
-
-    def _find_implicit_child(self, name):
-        return next((c for c in self.implicit_children if c.name == name), None)
-
-    def _find_or_create_implicit_link(self, comp, refresh):
-        child = self._find_implicit_child(comp.name)
-        if child is not None:
-            return
-        name = comp.name
-        dep_dir = self.config["core"]["default-dep-dir"]
-        path = os.path.join(dep_dir, name)
-        parent = self
-        top = comp.top_component
-        child = LinkComponent(name, path, parent, top)
-        self.implicit_children.append(child)
-        if refresh:
-            child._refresh_work_dir()
         
 class LinkComponent(BasicComponent):
     def __init__(self, name, path, parent, top_component):
@@ -380,6 +381,9 @@ class LinkComponent(BasicComponent):
         self.top_component = top_component
         self._move_top_component_to_front()
 
+    def _get_url(self):
+        return self.top_component._get_url()
+        
     def _move_top_component_to_front(self):
         self.root.top_components.remove(self.top_component)
         self.root.top_components.insert(0, self.top_component)
@@ -407,6 +411,9 @@ class LinkComponent(BasicComponent):
             if top_parent_section:
                 self.top_component.repository.record()
                 self.top_component.repository.write_state_to_config_section(top_parent_section)
+
+    def _find_child_config_section(self, child_name):
+        return self.top_component._find_child_config_section(child_name)
 
     def _get_child_config_sections(self):
         return self.top_component._get_child_config_sections()
