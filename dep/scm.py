@@ -255,6 +255,9 @@ class GitRepository(Repository):
 
     def has_local_modifications(self):
         return self._get_status()[0] > 0
+
+    def is_ahead(self):
+        return self._get_status()[1] > 0
     
     def refresh(self):
         check_local = True

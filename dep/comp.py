@@ -273,6 +273,8 @@ class RealComponent(BasicComponent):
     def _foreach_pre(self, comp, kw):
         if kw.get('only_modified') and not comp.repository.has_local_modifications():
             return False
+        if kw.get('only_ahead') and not comp.repository.is_ahead():
+            return False
         return True
     
     def _foreach_post(self, comp, kw):
