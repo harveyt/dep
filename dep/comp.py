@@ -58,6 +58,9 @@ class BasicComponent:
 
     def _find_implicit_child(self, name):
         return next((c for c in self.implicit_children if c.name == name), None)
+
+    def _find_implicit_child_for_top(self, top):
+        return next((c for c in self.implicit_children if c.top_component == top), None)
             
     def _add_implicit_child(self, child):
         self.implicit_children.append(child)
@@ -264,6 +267,12 @@ class RealComponent(BasicComponent):
             local = self.find_local_component()
             for child in local.children:
                 print child.name
+        elif opts.args.list_implicit_children:
+            local = self.find_local_component()
+            for top in self.root.top_components:
+                child = local._find_implicit_child_for_top(top)
+                if child:
+                    print child.name
         else:
             for top in self.root.top_components:
                 print top.name
