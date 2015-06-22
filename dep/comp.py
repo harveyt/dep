@@ -343,7 +343,7 @@ class RootComponent(RealComponent):
         if section:
             path = section["relpath"]
         else:
-            dep_dir = parent.config["core"]["default-dep-dir"]
+            dep_dir = parent.top_component.config["core"]["default-dep-dir"]
             path = os.path.join(dep_dir, name)
         return LinkComponent(name, path, parent, top_component)
 
