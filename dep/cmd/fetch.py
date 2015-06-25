@@ -9,10 +9,11 @@ from dep.helpers import *
 
 def command_fetch(args):
     root = comp.RootComponent()
-    root.foreach_dependency(["git", "fetch"] + opts.rest_args, dict())
+    root.foreach_dependency(["git", "fetch"] + opts.rest_args, vars(args))
 
 parser_fetch = opts.subparsers.add_parser("fetch",
                                       help="Fetch changes for each dependency",
                                       description="Fetch changes for each dependency")
+add_list_arguments(parser_fetch)
 parser_fetch.set_defaults(func=command_fetch)
 opts.allow_rest.append("fetch")
