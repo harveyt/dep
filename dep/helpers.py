@@ -162,3 +162,16 @@ def make_relative_symlink(src, dst):
         os.symlink(relpath, dst)
     except OSError, e:
         error("Cannot make relative symlink from '{}' to '{}': {}", src, dst, e)
+
+def add_list_arguments(parser):
+    parser.add_argument("--no-root", dest="list_root", action="store_false",
+                        help="Do not include the root project in list of dependencies")
+    parser.add_argument("--root", dest="list_root", action="store_true",
+                        help="Include the root project in list of dependencies (default)")
+    parser.add_argument("-t", "--top", dest="list_top", action="store_true",
+                        help="Include all top explicit dependencies (default)")
+    parser.add_argument("-c", "--children", dest="list_children", action="store_true",
+                        help="Include only explicit child dependencies of the local working directory")
+    parser.add_argument("-i", "--implicit-children", dest="list_implicit_children", action="store_true",
+                        help="Include all explicit and implicit child dependencies of the local working directory")
+    

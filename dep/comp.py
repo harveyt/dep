@@ -284,14 +284,11 @@ class RealComponent(BasicComponent):
         self.record_dep_tree()
         self.write_dep_tree_config()
 
-    def list_dependencies(self):
+    def list_dependencies(self, kw):
         self._validate_has_repo()
         self.read_dep_tree()
         local = self.find_local_component()
-        items = ComponentList(local,
-                              dict(list_children=opts.args.list_children,
-                                   list_implicit_children=opts.args.list_implicit_children,
-                                   list_root=opts.args.list_root)).build()
+        items = ComponentList(local, kw).build()
         for comp in items:
             print comp.name
 
