@@ -170,7 +170,7 @@ class ComponentList:
         self.list_implicit_children = kw.get('list_implicit_children')
         self.list_top = kw.get('list_top') or (not self.list_children and
                                                not self.list_implicit_children)
-        self.list_root = kw.get('list_root') 
+        self.list_root = kw.get('list_root')
 
     def build(self):
         items = []
@@ -179,12 +179,13 @@ class ComponentList:
             if self.list_root:
                 items.append(self.comp.root)
         elif self.list_children:
-            items.extend(self.comp.children)
+            for child in self.comp.children:
+                items.append(self.comp.top_component)
         elif self.list_implicit_children:
             for top in self.comp.root.top_components:
                 child = self.comp._find_implicit_child_for_top(top)
                 if child:
-                    items.append(child)
+                    items.append(top)
         return items
         
 class RealComponent(BasicComponent):
@@ -300,9 +301,9 @@ class RealComponent(BasicComponent):
         return True
     
     def _foreach_post(self, comp, kw):
-        if kw.get('foreach_record'):
+        if kw.get('foreach_record') and not opts.args.dry_run:
             self.record_dependencies()
-        if kw.get('foreach_refresh'):
+        if kw.get('foreach_refresh') and not opts.args.dry_run:
             self.refresh_dependencies()
         
     def foreach_dependency(self, cmd, kw):
@@ -323,12 +324,11 @@ class RealComponent(BasicComponent):
         local = self.find_local_component()        
         items = ComponentList(local, kw).build()
         for comp in items:
-            top = comp.top_component            
-            if top is self.root:
+            if comp is self.root:
                 path = "."
             else:
-                path = top.rel_path
-            top.repository.status_brief(path)
+                path = comp.rel_path
+            comp.repository.status_brief(path)
         
     def _debug_dump_content(self, prefix=""):
         self.config.debug_dump(prefix)
