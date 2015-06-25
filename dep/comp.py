@@ -189,7 +189,7 @@ class ComponentList:
                 if child:
                     items.append(top)
             if self.list_local:
-                items.append(self.local)
+                items.append(self.local.top_component)
         return items
         
 class RealComponent(BasicComponent):
