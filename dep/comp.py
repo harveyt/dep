@@ -164,12 +164,12 @@ class BasicComponent:
         debug("{}}}", prefix)
 
 class ComponentList:
-    def __init__(self, comp, **kw):
+    def __init__(self, comp, kw):
         self.comp = comp
         self.list_children = kw.get('list_children')
         self.list_implicit_children = kw.get('list_implicit_children')
-        self.list_top = kw.get('list_top') or (self.list_children is False and
-                                               self.list_implicit_children is False)
+        self.list_top = kw.get('list_top') or (not self.list_children and
+                                               not self.list_implicit_children)
         self.list_root = kw.get('list_root') 
 
     def build(self):
@@ -289,9 +289,9 @@ class RealComponent(BasicComponent):
         self.read_dep_tree()
         local = self.find_local_component()
         items = ComponentList(local,
-                              list_children=opts.args.list_children,
-                              list_implicit_children=opts.args.list_implicit_children,
-                              list_root=opts.args.list_root).build()
+                              dict(list_children=opts.args.list_children,
+                                   list_implicit_children=opts.args.list_implicit_children,
+                                   list_root=opts.args.list_root)).build()
         for comp in items:
             print comp.name
 
@@ -311,13 +311,11 @@ class RealComponent(BasicComponent):
     def foreach_dependency(self, cmd, **kw):
         self._validate_has_repo()
         self.read_dep_tree()
-        for top in self.root.top_components:
-            if self._foreach_pre(top, kw):
-                top.run_command(cmd)
-                self._foreach_post(top, kw)
-        if self._foreach_pre(self.root, kw):
-            self.root.run_command(cmd)
-            self._foreach_post(self.root, kw)
+        items = ComponentList(self, dict()).build()
+        for comp in items:
+            if self._foreach_pre(comp, kw):
+                comp.run_command(cmd)
+                self._foreach_post(comp, kw)
 
     def status_dependencies(self):
         self._validate_has_repo()
