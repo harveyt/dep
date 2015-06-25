@@ -17,9 +17,11 @@ parser_list = opts.subparsers.add_parser("list",
 parser_list.add_argument("--no-root", dest="list_root", action="store_false",
                          help="Do not include the root project in list of dependencies")
 parser_list.add_argument("--root", dest="list_root", action="store_true",
-                         help="Include the root project in list of dependencies")
+                         help="Include the root project in list of dependencies (default)")
+parser_list.add_argument("-t", "--top", dest="list_top", action="store_true",
+                         help="Include all top explicit dependencies (default)")
 parser_list.add_argument("-c", "--children", dest="list_children", action="store_true",
-                         help="List only explicit child dependencies of the local working directory")
+                         help="Include only explicit child dependencies of the local working directory")
 parser_list.add_argument("-i", "--implicit-children", dest="list_implicit_children", action="store_true",
-                         help="List all explicit and implicit child dependencies of the local working directory")
+                         help="Include all explicit and implicit child dependencies of the local working directory")
 parser_list.set_defaults(func=command_list)
