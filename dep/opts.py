@@ -28,7 +28,3 @@ parser.add_argument("-v", "--verbose", action="store_true",
                     help="Show more verbose information, including commands executed")
 parser.add_argument("--dry-run", action="store_true",
                     help="Only show what actions and commands would be executed, make no changes")
-parser.add_argument("-r", "--root", action="store_true",
-                    help="Run from root dependency (default)")
-parser.add_argument("-l", "--local", action="store_true",
-                    help="Run as if local dependency is the root dependency")

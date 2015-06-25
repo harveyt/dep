@@ -174,4 +174,5 @@ def add_list_arguments(parser):
                         help="Include only explicit child dependencies of the local working directory")
     parser.add_argument("-i", "--implicit-children", dest="list_implicit_children", action="store_true",
                         help="Include all explicit and implicit child dependencies of the local working directory")
-    
+    parser.add_argument("-l", "--local", dest="list_local", action="store_true",
+                        help="Include the local dependency and all explicit and implicit child dependencies")    

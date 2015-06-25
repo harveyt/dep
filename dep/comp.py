@@ -164,28 +164,32 @@ class BasicComponent:
         debug("{}}}", prefix)
 
 class ComponentList:
-    def __init__(self, comp, kw):
-        self.comp = comp
+    def __init__(self, local, kw):
+        self.local = local
         self.list_children = kw.get('list_children')
         self.list_implicit_children = kw.get('list_implicit_children')
+        self.list_local = kw.get('list_local')
         self.list_top = kw.get('list_top') or (not self.list_children and
-                                               not self.list_implicit_children)
+                                               not self.list_implicit_children and
+                                               not self.list_local)
         self.list_root = kw.get('list_root')
 
     def build(self):
         items = []
         if self.list_top:
-            items.extend(self.comp.root.top_components)
+            items.extend(self.local.root.top_components)
             if self.list_root:
-                items.append(self.comp.root)
+                items.append(self.local.root)
         elif self.list_children:
-            for child in self.comp.children:
-                items.append(self.comp.top_component)
-        elif self.list_implicit_children:
-            for top in self.comp.root.top_components:
-                child = self.comp._find_implicit_child_for_top(top)
+            for child in self.local.children:
+                items.append(child.top_component)
+        elif self.list_implicit_children or self.list_local:
+            for top in self.local.root.top_components:
+                child = self.local._find_implicit_child_for_top(top)
                 if child:
                     items.append(top)
+            if self.list_local:
+                items.append(self.local)
         return items
         
 class RealComponent(BasicComponent):
@@ -336,8 +340,6 @@ class RealComponent(BasicComponent):
 
 class RootComponent(RealComponent):
     def __init__(self):
-        if opts.args.local:
-            error("--local flag not yet supported")
         path = find_root_work_dir()
         if path is None:
             path = os.getcwd()
