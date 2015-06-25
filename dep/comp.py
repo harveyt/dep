@@ -308,7 +308,8 @@ class RealComponent(BasicComponent):
     def foreach_dependency(self, cmd, kw):
         self._validate_has_repo()
         self.read_dep_tree()
-        items = ComponentList(self, kw).build()
+        local = self.find_local_component()
+        items = ComponentList(local, kw).build()
         for comp in items:
             if self._foreach_pre(comp, kw):
                 comp.run_command(cmd)
@@ -319,13 +320,15 @@ class RealComponent(BasicComponent):
         self.read_dep_tree()
         status("M  Branch           Commit                                    Ahead Behind Path")
         status("-- ---------------  ---------------------------------------- ------ ------ -----------------------")
-        items = ComponentList(self, kw).build()
+        local = self.find_local_component()        
+        items = ComponentList(local, kw).build()
         for comp in items:
-            if comp is self.root:
+            top = comp.top_component            
+            if top is self.root:
                 path = "."
             else:
-                path = comp.rel_path
-            comp.repository.status_brief(path)
+                path = top.rel_path
+            top.repository.status_brief(path)
         
     def _debug_dump_content(self, prefix=""):
         self.config.debug_dump(prefix)
