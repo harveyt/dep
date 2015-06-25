@@ -314,14 +314,18 @@ class RealComponent(BasicComponent):
                 comp.run_command(cmd)
                 self._foreach_post(comp, kw)
 
-    def status_dependencies(self):
+    def status_dependencies(self, kw):
         self._validate_has_repo()
         self.read_dep_tree()
         status("M  Branch           Commit                                    Ahead Behind Path")
         status("-- ---------------  ---------------------------------------- ------ ------ -----------------------")
-        for top in self.root.top_components:
-            top.repository.status_brief(top.rel_path)
-        self.root.repository.status_brief(".")
+        items = ComponentList(self, kw).build()
+        for comp in items:
+            if comp is self.root:
+                path = "."
+            else:
+                path = comp.rel_path
+            comp.repository.status_brief(path)
         
     def _debug_dump_content(self, prefix=""):
         self.config.debug_dump(prefix)
