@@ -29,6 +29,9 @@ class Repository:
     def read_state_from_config_section(self, section):
         self.branch = section["branch"] if section.has_key("branch") else None
         self.commit = section["commit"] if section.has_key("commit") else None
+
+    def read_state_from_disk(self):
+        pass
         
     @staticmethod
     def determine_vcs_from_url(url):
@@ -134,7 +137,11 @@ class GitRepository(Repository):
 
     def __str__(self):
         return "{} '{}'".format(self.__class__.__name__, self.git_dir)
-        
+
+    def read_state_from_disk(self):
+        self.branch = self._get_branch()
+        self.commit = self._get_commit()
+    
     @staticmethod
     def is_present(work_dir):
         git_dir = os.path.join(work_dir, ".git")

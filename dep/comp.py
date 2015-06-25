@@ -205,7 +205,7 @@ class RealComponent(BasicComponent):
         if self.config.need_read:
             if self.config.exists():
                 self.config.read()
-            self._read_repository_state_from_parent_config()
+            self._read_repository_state()
 
     def _write_config(self):
         if self.config.need_write:
@@ -234,11 +234,17 @@ class RealComponent(BasicComponent):
         parent_section = self.parent.config.add_section("dep", self.name)
         parent_section["relpath"] = self.rel_path
         
-    def _read_repository_state_from_parent_config(self):
+    def _read_repository_state(self):
+        updated = False
+        # If possible read state from parent config
         if self.parent:
             parent_section = self.parent._find_child_config_section(self.name)
             if parent_section:
                 self.repository.read_state_from_config_section(parent_section)
+                updated = True
+        # For root or new components, read from disk
+        if not updated:
+            self.repository.read_state_from_disk()
         
     def _refresh_work_dir(self):
         self.repository.refresh()
