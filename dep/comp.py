@@ -162,6 +162,30 @@ class BasicComponent:
                 debug("{},".format(prefix))
             c.debug_dump("{}[{}] ".format(prefix, i))
         debug("{}}}", prefix)
+
+class ComponentList:
+    def __init__(self, comp, **kw):
+        self.comp = comp
+        self.list_children = kw.get('list_children')
+        self.list_implicit_children = kw.get('list_implicit_children')
+        self.list_top = kw.get('list_top') or (self.list_children is False and
+                                               self.list_implicit_children is False)
+        self.list_root = kw.get('list_root') 
+
+    def build(self):
+        items = []
+        if self.list_top:
+            items.extend(self.comp.root.top_components)
+            if self.list_root:
+                items.append(self.comp.root)
+        elif self.list_children:
+            items.extend(self.comp.children)
+        elif self.list_implicit_children:
+            for top in self.comp.root.top_components:
+                child = self.comp._find_implicit_child_for_top(top)
+                if child:
+                    items.append(child)
+        return items
         
 class RealComponent(BasicComponent):
     def __init__(self, name, path, parent, url=None):
@@ -263,33 +287,25 @@ class RealComponent(BasicComponent):
     def list_dependencies(self):
         self._validate_has_repo()
         self.read_dep_tree()
-        if opts.args.list_children:
-            local = self.find_local_component()
-            for child in local.children:
-                print child.name
-        elif opts.args.list_implicit_children:
-            local = self.find_local_component()
-            for top in self.root.top_components:
-                child = local._find_implicit_child_for_top(top)
-                if child:
-                    print child.name
-        else:
-            for top in self.root.top_components:
-                print top.name
-            if opts.args.list_root:
-                print self.root.name
+        local = self.find_local_component()
+        items = ComponentList(local,
+                              list_children=opts.args.list_children,
+                              list_implicit_children=opts.args.list_implicit_children,
+                              list_root=opts.args.list_root).build()
+        for comp in items:
+            print comp.name
 
     def _foreach_pre(self, comp, kw):
-        if kw.get('only_modified') and not comp.repository.has_local_modifications():
+        if kw.get('foreach_only_modified') and not comp.repository.has_local_modifications():
             return False
-        if kw.get('only_ahead') and not comp.repository.is_ahead():
+        if kw.get('foreach_only_ahead') and not comp.repository.is_ahead():
             return False
         return True
     
     def _foreach_post(self, comp, kw):
-        if kw.get('record'):
+        if kw.get('foreach_record'):
             self.record_dependencies()
-        if kw.get('refresh'):
+        if kw.get('foreach_refresh'):
             self.refresh_dependencies()
         
     def foreach_dependency(self, cmd, **kw):
