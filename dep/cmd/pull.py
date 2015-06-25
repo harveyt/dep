@@ -9,7 +9,7 @@ from dep.helpers import *
 
 def command_pull(args):
     root = comp.RootComponent()
-    root.foreach_dependency(["git", "pull"] + opts.rest_args)
+    root.foreach_dependency(["git", "pull"] + opts.rest_args, dict())
 
 parser_pull = opts.subparsers.add_parser("pull",
                                       help="Pull changes for each dependency",

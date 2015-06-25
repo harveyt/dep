@@ -9,10 +9,9 @@ from dep.helpers import *
 
 def command_foreach(args):
     root = comp.RootComponent()
-    root.foreach_dependency(opts.rest_args,
-                            foreach_record=args.record,
-                            foreach_refresh=args.refresh,
-                            foreach_only_modified=args.only_modified)
+    root.foreach_dependency(opts.rest_args, dict(foreach_record=args.record,
+                                                 foreach_refresh=args.refresh,
+                                                 foreach_only_modified=args.only_modified))
 
 parser_foreach = opts.subparsers.add_parser("foreach",
                                             help="Run a shell command for each dependency",

@@ -9,7 +9,7 @@ from dep.helpers import *
 
 def command_diff(args):
     root = comp.RootComponent()
-    root.foreach_dependency(["git", "diff"] + opts.rest_args)
+    root.foreach_dependency(["git", "diff"] + opts.rest_args, dict())
 
 parser_diff = opts.subparsers.add_parser("diff",
                                       help="Diff changes for each dependency",

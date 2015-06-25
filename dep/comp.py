@@ -308,10 +308,10 @@ class RealComponent(BasicComponent):
         if kw.get('foreach_refresh'):
             self.refresh_dependencies()
         
-    def foreach_dependency(self, cmd, **kw):
+    def foreach_dependency(self, cmd, kw):
         self._validate_has_repo()
         self.read_dep_tree()
-        items = ComponentList(self, dict()).build()
+        items = ComponentList(self, kw).build()
         for comp in items:
             if self._foreach_pre(comp, kw):
                 comp.run_command(cmd)
