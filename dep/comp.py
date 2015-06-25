@@ -21,7 +21,7 @@ class BasicComponent:
         self.implicit_children = []
 
     def __str__(self):
-        return "{} '{}' at {}".format(self.__class__.__name__, self.name, self.abs_path)
+        return "Component '{}' at {}".format(self.name, self.abs_path)
 
     def _get_url(self):
         return None
@@ -109,8 +109,12 @@ class BasicComponent:
         self._write_config()
 
     def run_command(self, cmd):
-        status("##===================================================================================================")
+        columns = int(os.environ["COLUMNS"])
+        if columns is None:
+            columns = 80
+        status("##" + '=' * (columns - 3))
         status("## {}:", self)
+        status("##")
         old_quiet = opts.args.quiet
         opts.args.quiet = False
         run(*cmd, shell=True, cwd=self.abs_path)
