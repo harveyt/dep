@@ -139,8 +139,9 @@ class GitRepository(Repository):
         return "{} '{}'".format(self.__class__.__name__, self.git_dir)
 
     def read_state_from_disk(self):
-        self.branch = self._get_branch()
-        self.commit = self._get_commit()
+        if os.path.exists(self.git_dir):
+            self.branch = self._get_branch()
+            self.commit = self._get_commit()
     
     @staticmethod
     def is_present(work_dir):
