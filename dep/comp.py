@@ -333,8 +333,8 @@ class RealComponent(BasicComponent):
     def status_dependencies(self, kw):
         self._validate_has_repo()
         self.read_dep_tree()
-        status("M  Branch           Commit                                    Ahead Behind Path")
-        status("-- ---------------  ---------------------------------------- ------ ------ -----------------------")
+        status("M  Branch           Commit                                   Push Pull Path")
+        status("-  ---------------  ---------------------------------------- ---- ---- --------------------------")
         local = self.find_local_component()        
         items = ComponentList(local, kw).build()
         for comp in items:

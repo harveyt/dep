@@ -322,5 +322,5 @@ class GitRepository(Repository):
         ahead = "?" if ahead is None else ahead
         behind = "?" if behind is None else behind
         branch = self._branch_name_from_ref(branch)
-        status("{:1} {:16} {:41} {:>6} {:>6} {}", mod, branch, commit, ahead, behind, path)
+        status("{:1} {:16} {:41} {:>4} {:>4} {}", mod, branch, commit, ahead, behind, path)
     
