@@ -403,6 +403,7 @@ class RootComponent(RealComponent):
         if parent is self:
             comp = top
             if new_top and refresh:
+                top._read_repository_state()
                 top._refresh_work_dir()
         else:
             if new_top:
