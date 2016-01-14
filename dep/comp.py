@@ -109,10 +109,7 @@ class BasicComponent:
         self._write_config()
 
     def run_command(self, cmd):
-        columns = int(os.environ["COLUMNS"])
-        if columns is None:
-            columns = 80
-        status("##" + '=' * (columns - 3))
+        status_seperator()
         status("## {}:", self)
         status("##")
         old_quiet = opts.args.quiet
@@ -333,16 +330,16 @@ class RealComponent(BasicComponent):
     def status_dependencies(self, kw):
         self._validate_has_repo()
         self.read_dep_tree()
-        status("M  Branch           Commit                                   Push Pull Path")
-        status("-  ---------------  ---------------------------------------- ---- ---- --------------------------")
         local = self.find_local_component()        
         items = ComponentList(local, kw).build()
+        kw['status_first'] = True
         for comp in items:
             if comp is self.root:
                 path = "."
             else:
                 path = comp.rel_path
-            comp.repository.status_brief(path)
+            comp.repository.status(path, kw)
+            kw['status_first'] = False            
         
     def _debug_dump_content(self, prefix=""):
         self.config.debug_dump(prefix)

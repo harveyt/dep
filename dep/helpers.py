@@ -35,6 +35,12 @@ def status(fmt, *a):
     sys.stdout.write(fmt.format(*a))
     sys.stdout.write("\n")
 
+def status_seperator():
+    columns = int(os.environ["COLUMNS"])
+    if columns is None:
+        columns = 80
+    status("##" + '=' * (columns - 3))
+
 def validate_file_exists(file):
     if not os.path.isfile(file):
         error("File '{}' does not exist", file)

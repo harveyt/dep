@@ -123,7 +123,7 @@ class FileRepository(Repository):
     def record(self):
         pass
 
-    def status_brief(self, path):
+    def status(self, path, kw):
         pass
 
 class GitRepository(Repository):
@@ -291,6 +291,11 @@ class GitRepository(Repository):
         # TODO: Check it is valid!
         return commit
 
+    def _get_describe(self):
+        describe = run_query("git", "describe", "--tags", "--always", cwd=self.work_dir).rstrip("\n")
+        # TODO: Check it is valid!
+        return describe
+
     def record(self):
         new_branch = self._get_branch()
         new_commit = self._get_commit()
@@ -303,8 +308,14 @@ class GitRepository(Repository):
 
     def _branch_name_from_ref(self, ref):
         return re.sub(r"refs/heads/", "", ref)
+
+    def status(self, path, kw):
+        if kw.get('status_long'):
+            self.status_long(path, kw)
+        else:
+            self.status_short(path, kw)            
             
-    def status_brief(self, path):
+    def status_short(self, path, kw):
         branch = self.branch
         commit = self.commit
         actual_branch = self._get_branch()
@@ -316,11 +327,25 @@ class GitRepository(Repository):
         else:
             branch = (" " if branch == actual_branch else "*") + actual_branch
         if commit is None:
-            commit = " " + actual_commit
+            commit_diff = " "
         else:
-            commit = (" " if commit == actual_commit else "*") + actual_commit
+            commit_diff = (" " if commit == actual_commit else "*")
         ahead = "?" if ahead is None else ahead
         behind = "?" if behind is None else behind
         branch = self._branch_name_from_ref(branch)
-        status("{:1} {:16} {:41} {:>4} {:>4} {}", mod, branch, commit, ahead, behind, path)
+        if not kw.get('status_commit'):
+            actual_commit = self._get_describe()
+        commit_value = commit_diff + actual_commit
+        lead = ("## " if kw.get('status_long') else "")
+        if kw.get('status_first'):
+            status("{}M  Branch           Commit                                   Push Pull Path", lead)
+            status("{}-  ---------------  ---------------------------------------- ---- ---- --------------------------", lead)
+        status("{}{:1} {:16} {:41} {:>4} {:>4} {}", lead, mod, branch, commit_value, ahead, behind, path)
     
+    def status_long(self, path, kw):
+        status_seperator()
+        kw['status_first'] = True
+        self.status_short(path, kw)
+        status("")        
+        run("git", "status", "--long", cwd=self.work_dir)
+        status("")
