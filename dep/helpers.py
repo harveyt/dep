@@ -144,6 +144,10 @@ def find_root_work_dir(path=None):
             return last_work_dir
         last_work_dir = work_dir
         path = os.path.dirname(work_dir)
+        # If .deproot exists in directory then only directories from here or under can be roots.
+        deproot_path = os.path.join(path, ".deproot")
+        if os.path.isfile(deproot_path):
+            return last_work_dir
         if path == os.path.sep:
             return None
 
