@@ -126,6 +126,9 @@ class FileRepository(Repository):
     def status(self, path, kw):
         pass
 
+    def create_branch(self, name, startpoint):
+        pass
+
 class GitRepository(Repository):
     def __init__(self, work_dir, url):
         name = Repository.determine_name_from_url(url)
@@ -349,3 +352,9 @@ class GitRepository(Repository):
         status("")        
         run("git", "status", "--long", cwd=self.work_dir)
         status("")
+
+    def create_branch(self, name, startpoint):
+        starting = ("\n    with start point '{}'".format(startpoint) if startpoint is not None else "")
+        status("Branch {}\n    to branch '{}'{}", self, name, starting)
+        run("git", "checkout", "-b", name, startpoint, cwd=self.work_dir)
+        

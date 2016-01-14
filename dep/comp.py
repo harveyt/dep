@@ -296,6 +296,27 @@ class RealComponent(BasicComponent):
         self.record_dep_tree()
         self.write_dep_tree_config()
 
+    def commit_dependencies(self, commit_args, kw):
+        # TODO: Should call self.repository to do work!
+        self.foreach_dependency(["git", "add", "--all", "."], kw)
+        if kw.get('foreach_force_all'):
+            kw.update(foreach_record=True, foreach_only_modified=False)
+        else:
+            kw.update(foreach_record=True, foreach_only_modified=True)
+        self.foreach_dependency(["git", "commit"] + commit_args, kw)
+
+    def branch_dependencies(self, name, startpoint, kw):
+        self._validate_has_repo()
+        self.read_dep_tree()
+        local = self.find_local_component()
+        items = ComponentList(local, kw).build()
+        for comp in items:
+            comp.repository.create_branch(name, startpoint)            
+        starting_msg = (" with start point '{}'".format(startpoint) if startpoint is not None else "")
+        commit_msg = "Created branch '{}'{}".format(name, starting_msg)
+        kw.update(foreach_force_all=True)
+        self.commit_dependencies(["--allow-empty", "-m", commit_msg], kw)
+
     def list_dependencies(self, kw):
         self._validate_has_repo()
         self.read_dep_tree()
