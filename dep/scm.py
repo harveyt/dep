@@ -295,7 +295,8 @@ class GitRepository(Repository):
         return commit
 
     def _get_describe(self):
-        describe = run_query("git", "describe", "--tags", "--always", cwd=self.work_dir).rstrip("\n")
+        actual_branch = self._get_branch()
+        describe = run_query("git", "describe", "--contains", actual_branch, "--always", cwd=self.work_dir).rstrip("\n")
         # TODO: Check it is valid!
         return describe
 
