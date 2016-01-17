@@ -77,6 +77,7 @@ def run(*cmd, **kw):
         cwd = None
     query = kw.get('query')
     pipe = kw.get('pipe')
+    allow_failure = kw.get('allow_failure')
     if not query and not pipe:
         if cwd:
             verbose("-> pushd {}", cwd)
@@ -97,7 +98,11 @@ def run(*cmd, **kw):
         else:
             exit_status = subprocess.call(cmd, cwd=cwd)
         if exit_status != 0:
-            error("Execution of '{}' returned exit status {}", cmd_text, exit_status)
+            msg = "Execution of '{}' returned exit status {}".format(cmd_text, exit_status)
+            if allow_failure:
+                status("{}", msg)
+            else:
+                error("{}", msg)
     except OSError, e:
         error("Cannot execute '{}': {}'", cmd_text, e)
     except Exception, e:

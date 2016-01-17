@@ -20,6 +20,8 @@ parser_foreach.add_argument("--refresh", dest="foreach_refresh", action="store_t
                            help="Run refresh operation after each command run")
 parser_foreach.add_argument("--only-modified", dest="foreach_only_modified", action="store_true",
                            help="Run command only on repositories with local modifications")
+parser_foreach.add_argument("-f", "--allow-failure", dest="allow_failure", action="store_true",
+                           help="Continue on even if command exits with non-zero failure code")
 add_list_arguments(parser_foreach)
 parser_foreach.set_defaults(func=command_foreach)
 opts.allow_rest.append("foreach")

@@ -108,13 +108,14 @@ class BasicComponent:
             child.write_dep_tree_config()
         self._write_config()
 
-    def run_command(self, cmd):
+    def run_command(self, cmd, kw=None):
         status_seperator()
         status("## {}:", self)
         status("##")
+        allow_failure = (None if kw is None else kw.get('allow_failure'))
         old_quiet = opts.args.quiet
         opts.args.quiet = False
-        run(*cmd, shell=True, cwd=self.abs_path)
+        run(*cmd, shell=True, cwd=self.abs_path, allow_failure=allow_failure)
         opts.args.quiet = old_quiet
 
     def find_local_component(self):
@@ -345,7 +346,7 @@ class RealComponent(BasicComponent):
         items = ComponentList(local, kw).build()
         for comp in items:
             if self._foreach_pre(comp, kw):
-                comp.run_command(cmd)
+                comp.run_command(cmd, kw)
                 self._foreach_post(comp, kw)
 
     def status_dependencies(self, kw):
