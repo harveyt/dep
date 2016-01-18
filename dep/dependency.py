@@ -117,7 +117,7 @@ class Node:
     def read_dependency_tree(self):
         child_deps = self.dep.read_children_from_config(self.abs_path)
         for child_dep in reversed(child_deps):
-            child_node = self.tree.resolve_dep_to_node(child_dep, self)
+            child_node = self.resolve_child_by_dep(child_dep)
             child_node.read_dependency_tree()
 
     def add_implicit_children(self):
@@ -140,6 +140,30 @@ class Node:
         
     def find_child_node_by_name(self, name):
         return next((c for c in self.children if c.name == name), None)
+
+    def _get_child_top_node_by_dep(self, dep):
+        for top_node in self.tree.top_nodes:
+            if top_node.name == dep.name:
+                (status, issues) = top_node.dep.resolve_with(dep)
+                if status:
+                    return top_node
+                else:
+                    error("Cannot resolve dependency:\n\t{}\n\t{}\n{}", self.real_node, dep, issues)
+        return self.tree._create_top_node_for_dep(dep)
+
+    def _resolve_child_top_node_by_dep(self, dep):
+        top_node = self._get_child_top_node_by_dep(dep)
+        self.tree._move_top_node_to_front(top_node)
+        return top_node
+
+    def resolve_child_by_dep(self, dep):
+        top_node = self._resolve_child_top_node_by_dep(dep)
+        if isinstance(self, RootNode):
+            top_node.explicit = True
+            return top_node
+        link_node = LinkNode(top_node, self)
+        link_node.explicit = True
+        return link_node
     
     def __str__(self):
         return "Node '{}' at {}".format(self.name, self.abs_path)
@@ -214,38 +238,16 @@ class Tree:
         self.root_node.read_dependency_tree()
         self.root_node.add_implicit_children()
 
-    def find_top_node_by_dep(self, dep, parent_node):
-        for top_node in self.top_nodes:
-            if top_node.name == dep.name:
-                (status, issues) = top_node.dep.resolve_with(dep)
-                if status:
-                    return top_node
-                else:
-                    error("Cannot resolve dependency:\n\t{}\n\t{}\n{}", parent_node.real_node, dep, issues)
-        return None
+    def _create_top_node_for_dep(self, dep):
+        top_node = TopNode(self, dep, self.root_node)
+        self.top_nodes.append(top_node)
+        return top_node
 
     def _move_top_node_to_front(self, top_node):
         self.root_node.move_child_to_front(top_node)
         self.top_nodes.remove(top_node)
         self.top_nodes.insert(0, top_node)
     
-    def resolve_dep_to_top_node(self, dep, parent_node):
-        top_node = self.find_top_node_by_dep(dep, parent_node)
-        if top_node is None:
-            top_node = TopNode(self, dep, self.root_node)
-            self.top_nodes.insert(0, top_node)
-        self._move_top_node_to_front(top_node)
-        return top_node
-
-    def resolve_dep_to_node(self, dep, parent_node):
-        top_node = self.resolve_dep_to_top_node(dep, parent_node)
-        if parent_node is self.root_node:
-            top_node.explicit = True
-            return top_node
-        link_node = LinkNode(top_node, parent_node)
-        link_node.explicit = True
-        return link_node
-
     def __str__(self):
         return "Tree '{}' at {}".format(self.root_node.name, self.root_node.abs_path)
 
