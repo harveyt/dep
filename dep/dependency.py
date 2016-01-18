@@ -36,6 +36,26 @@ class Dependency:
             children.append(child)
         return children
 
+    def _resolve_with_field(self, dep, field, status, issues):
+        self_value = eval("self.{}".format(field))
+        dep_value = eval("dep.{}".format(field))
+        if self_value != dep_value:
+            status = False            
+            issues += "\n\texisting {}:   '{}'\n\tdependency {}: '{}'".format(field, self_value, field, dep_value)
+        return (status, issues)
+                          
+    def resolve_with(self, dep):
+        status = True
+        issues = ""
+        (status, issues) = self._resolve_with_field(dep, "name", status, issues)
+        # TODO: Allow rel_path to be different for links?        
+        (status, issues) = self._resolve_with_field(dep, "rel_path", status, issues)
+        (status, issues) = self._resolve_with_field(dep, "url", status, issues)
+        (status, issues) = self._resolve_with_field(dep, "vcs", status, issues)
+        (status, issues) = self._resolve_with_field(dep, "branch", status, issues)
+        (status, issues) = self._resolve_with_field(dep, "commit", status, issues)
+        return (status, issues)
+
     def _populate_from_config_section(self, section):
         self.rel_path = section["relpath"]
         self.url = section["url"]
@@ -194,16 +214,23 @@ class Tree:
         self.root_node.read_dependency_tree()
         self.root_node.add_implicit_children()
 
-    def find_top_node_by_name(self, name):
-        return next((c for c in self.top_nodes if c.name == name), None)
+    def find_top_node_by_dep(self, dep, parent_node):
+        for top_node in self.top_nodes:
+            if top_node.name == dep.name:
+                (status, issues) = top_node.dep.resolve_with(dep)
+                if status:
+                    return top_node
+                else:
+                    error("Cannot resolve dependency:\n\t{}\n\t{}\n{}", parent_node.real_node, dep, issues)
+        return None
 
     def _move_top_node_to_front(self, top_node):
         self.root_node.move_child_to_front(top_node)
         self.top_nodes.remove(top_node)
         self.top_nodes.insert(0, top_node)
     
-    def resolve_dep_to_top_node(self, dep):
-        top_node = self.find_top_node_by_name(dep.name)
+    def resolve_dep_to_top_node(self, dep, parent_node):
+        top_node = self.find_top_node_by_dep(dep, parent_node)
         if top_node is None:
             top_node = TopNode(self, dep, self.root_node)
             self.top_nodes.insert(0, top_node)
@@ -211,7 +238,7 @@ class Tree:
         return top_node
 
     def resolve_dep_to_node(self, dep, parent_node):
-        top_node = self.resolve_dep_to_top_node(dep)
+        top_node = self.resolve_dep_to_top_node(dep, parent_node)
         if parent_node is self.root_node:
             top_node.explicit = True
             return top_node
