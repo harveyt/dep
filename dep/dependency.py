@@ -142,11 +142,19 @@ class Node:
         pass
 
 # --------------------------------------------------------------------------------
-class RootNode(Node):
+class RealNode(Node):
+    def __init__(self, tree, dep, parent=None):
+        Node.__init__(self, tree, dep, parent)
+        
+    def __str__(self):
+        return "RealNode '{}' at {}".format(self.name, self.abs_path)
+                 
+# --------------------------------------------------------------------------------
+class RootNode(RealNode):
     def __init__(self, tree, root_path):
         root_path = os.path.realpath(root_path)
         root_dep = Dependency.create_root(root_path)
-        Node.__init__(self, tree, root_dep)
+        RealNode.__init__(self, tree, root_dep)
         self.abs_path = root_path
         self.explicit = True
 
@@ -154,9 +162,9 @@ class RootNode(Node):
         return "RootNode '{}' at {}".format(self.name, self.abs_path)
 
 # --------------------------------------------------------------------------------
-class TopNode(Node):
+class TopNode(RealNode):
     def __init__(self, tree, dep, parent):
-        Node.__init__(self, tree, dep, parent)
+        RealNode.__init__(self, tree, dep, parent)
         self.abs_path = os.path.join(tree.root_node.abs_path, self.rel_path)
         
     def __str__(self):
