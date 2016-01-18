@@ -79,10 +79,11 @@ class Dependency:
 
 # --------------------------------------------------------------------------------
 class Node:
-    def __init__(self, tree, dep, parent=None):
+    def __init__(self, tree, abs_path, dep, config, parent=None):
         self.tree = tree
+        self.abs_path = abs_path        
         self.dep = dep
-        self.abs_path = None
+        self.config = config
         self.explicit = False
         self.real_node = None
         self.parent = parent
@@ -171,12 +172,15 @@ class Node:
     def debug_dump(self, prefix="", recurse=False):
         debug("{}--- {} ---", prefix, self)
         debug("{}tree = {}", prefix, self.tree)
+        debug("{}abs_path = {}", prefix, self.abs_path)
         if recurse:
             debug("{}dep =", prefix)
             self.dep.debug_dump(prefix + "    ")
+            debug("{}config =", prefix)
+            self.config.debug_dump(prefix + "    ")
         else:
             debug("{}dep = {}", prefix, self.dep)
-        debug("{}abs_path = {}", prefix, self.abs_path)
+            debug("{}config = {}", prefix, self.config)            
         debug("{}explicit = {}", prefix, self.explicit)
         debug("{}real_node = {}", prefix, self.real_node)        
         if recurse:
@@ -190,8 +194,9 @@ class Node:
 
 # --------------------------------------------------------------------------------
 class RealNode(Node):
-    def __init__(self, tree, dep, parent=None):
-        Node.__init__(self, tree, dep, parent)
+    def __init__(self, tree, abs_path, dep, parent=None):
+        conf = config.Config(os.path.join(abs_path, ".depconfig"))
+        Node.__init__(self, tree, abs_path, dep, conf, parent)
         self.real_node = self
         
     def __str__(self):
@@ -202,8 +207,7 @@ class RootNode(RealNode):
     def __init__(self, tree, root_path):
         root_path = os.path.realpath(root_path)
         root_dep = Dependency.create_root(root_path)
-        RealNode.__init__(self, tree, root_dep)
-        self.abs_path = root_path
+        RealNode.__init__(self, tree, root_path, root_dep)
         self.explicit = True
 
     def __str__(self):
@@ -212,8 +216,8 @@ class RootNode(RealNode):
 # --------------------------------------------------------------------------------
 class TopNode(RealNode):
     def __init__(self, tree, dep, parent):
-        RealNode.__init__(self, tree, dep, parent)
-        self.abs_path = os.path.join(tree.root_node.abs_path, self.rel_path)
+        abs_path = os.path.join(tree.root_node.abs_path, dep.rel_path)
+        RealNode.__init__(self, tree, abs_path, dep, parent)
         
     def __str__(self):
         return "TopNode '{}' at {}".format(self.name, self.abs_path)
@@ -221,8 +225,8 @@ class TopNode(RealNode):
 # --------------------------------------------------------------------------------
 class LinkNode(Node):
     def __init__(self, top_node, parent):
-        Node.__init__(self, top_node.tree, top_node.dep, parent)
-        self.abs_path = os.path.join(self.parent.real_node.abs_path, top_node.rel_path)
+        abs_path = os.path.join(parent.real_node.abs_path, top_node.rel_path)
+        Node.__init__(self, top_node.tree, abs_path, top_node.dep, top_node.config, parent)
         self.real_node = top_node
         
     def __str__(self):
