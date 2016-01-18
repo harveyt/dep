@@ -63,6 +63,7 @@ class Node:
         self.tree = tree
         self.dep = dep
         self.abs_path = None
+        self.explicit = False
         self.parent = parent
         self.children = []
         if parent is not None:
@@ -77,6 +78,7 @@ class Node:
         debug("{}dep = {}", prefix, self.dep)
         self._debug_dump_content(prefix)
         debug("{}abs_path = {}", prefix, self.abs_path)
+        debug("{}explicit = {}", prefix, self.explicit)
         if recurse:
             debug("{}parent = {}", prefix, self.parent)
             debug("{}children[] = {{", prefix)
@@ -96,6 +98,7 @@ class RootNode(Node):
         root_dep = Dependency.create_root(root_path)
         Node.__init__(self, tree, root_dep)
         self.abs_path = root_path
+        self.explicit = True
 
     def __str__(self):
         return "RootNode '{}' at {}".format(self.dep.name, self.abs_path)
@@ -149,9 +152,17 @@ class Tree:
 
     def resolve_dep_to_node(self, dep, parent_node):
         top_node = self.resolve_dep_to_top_node(dep)
+        self.move_top_node_to_front(top_node)
         if parent_node is self.root_node:
+            top_node.explicit = True
             return top_node
-        return LinkNode(top_node, parent_node)
+        link_node = LinkNode(top_node, parent_node)
+        link_node.explicit = True
+        return link_node
+
+    def move_top_node_to_front(self, top_node):
+        self.top_nodes.remove(top_node)
+        self.top_nodes.insert(0, top_node)
 
     def __str__(self):
         return "Tree '{}' at {}".format(self.root_node.dep.name, self.root_node.abs_path)
