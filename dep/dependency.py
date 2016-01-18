@@ -25,11 +25,8 @@ class Dependency:
         root_dep.rel_path = "."
         return root_dep
 
-    def read_children_from_config(self, abs_path):
+    def read_children_from_config(self, conf):
         children = []
-        conf = config.Config(os.path.join(abs_path, ".depconfig"))
-        if conf.exists():
-            conf.read()
         for section in conf.sections_named("dep"):
             child = Dependency(section.subname, self)
             child._populate_from_config_section(section)            
@@ -115,8 +112,14 @@ class Node:
     def commit(self):
         return self.dep.commit
 
+    def read_config(self):
+        if self.config.need_read:
+            if self.config.exists():
+                self.config.read()
+        
     def read_dependency_tree(self):
-        child_deps = self.dep.read_children_from_config(self.abs_path)
+        self.read_config()
+        child_deps = self.dep.read_children_from_config(self.config)
         for child_dep in reversed(child_deps):
             child_node = self.resolve_child_by_dep(child_dep)
             child_node.read_dependency_tree()
