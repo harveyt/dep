@@ -188,7 +188,8 @@ class Node:
             debug("{}dep = {}", prefix, self.dep)
             debug("{}config = {}", prefix, self.config)            
         debug("{}explicit = {}", prefix, self.explicit)
-        debug("{}real_node = {}", prefix, self.real_node)        
+        debug("{}real_node = {}", prefix, self.real_node)
+        self._debug_dump_content(prefix, recurse)
         if recurse:
             debug("{}parent = {}", prefix, self.parent)
             debug("{}children[] = {{", prefix)
@@ -198,16 +199,28 @@ class Node:
                 c.debug_dump("{}[{}] ".format(prefix, i), recurse)
             debug("{}}}", prefix)
 
+    def _debug_dump_content(self, prefix, recurse):
+        pass
+
 # --------------------------------------------------------------------------------
 class RealNode(Node):
     def __init__(self, tree, abs_path, dep, parent=None):
         conf = config.Config(os.path.join(abs_path, ".depconfig"))
         Node.__init__(self, tree, abs_path, dep, conf, parent)
         self.real_node = self
-
+        self.repository = None
+        
     def __str__(self):
         return "RealNode '{}' at {}".format(self.name, self.abs_path)
-                 
+
+    def _debug_dump_content(self, prefix, recurse):
+        if recurse:
+            debug("{}repository =", prefix)
+            if self.repository is not None:
+                self.repository.debug_dump(prefix + "    ")
+        else:
+            debug("{}repository = {}", prefix, self.repository)
+    
 # --------------------------------------------------------------------------------
 class RootNode(RealNode):
     def __init__(self, tree, root_path):
@@ -215,6 +228,7 @@ class RootNode(RealNode):
         root_dep = Dependency.create_root(root_path)
         RealNode.__init__(self, tree, root_path, root_dep)
         self.explicit = True
+        # TODO: Initialize repository correctly?
 
     def __str__(self):
         return "RootNode '{}' at {}".format(self.name, self.abs_path)
@@ -224,10 +238,14 @@ class TopNode(RealNode):
     def __init__(self, tree, dep, parent):
         abs_path = os.path.join(tree.root_node.abs_path, dep.rel_path)
         RealNode.__init__(self, tree, abs_path, dep, parent)
-
+        self.repository = scm.Repository.create(self.abs_path, self.url)
+        
     def refresh_disk(self):
         verbose("Refresh {}", self)
-        
+        self.repository.branch = self.branch
+        self.repository.commit = self.commit
+        self.repository.refresh()
+            
     def __str__(self):
         return "TopNode '{}' at {}".format(self.name, self.abs_path)
 
