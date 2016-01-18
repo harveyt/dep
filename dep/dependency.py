@@ -64,10 +64,11 @@ class Node:
         self.dep = dep
         self.abs_path = None
         self.explicit = False
+        self.real_node = None
         self.parent = parent
         self.children = []
         if parent is not None:
-            parent.children.append(self)
+            parent.children.insert(0, self)
 
     @property
     def name(self):
@@ -95,7 +96,7 @@ class Node:
 
     def read_dependency_tree(self):
         child_deps = self.dep.read_children_from_config(self.abs_path)
-        for child_dep in child_deps:
+        for child_dep in reversed(child_deps):
             child_node = self.tree.resolve_dep_to_node(child_dep, self)
             child_node.read_dependency_tree()
 
@@ -105,13 +106,18 @@ class Node:
             if child_node.explicit is False:
                 continue
             child_node.add_implicit_children()
-            for child_child_node in child_node.children:
+            for child_child_node in reversed(child_node.children):
                 existing_child = self.find_child_node_by_name(child_child_node.name)
                 if existing_child is not None:
                     continue
-                implicit_top_child = (child_child_node.top_node if isinstance(child_child_node, LinkNode) else child_child_node)
-                implicit_child = LinkNode(implicit_top_child, self)
-                    
+                implicit_real_child = child_child_node.real_node
+                implicit_child = LinkNode(implicit_real_child, self)
+                self.move_child_to_front(implicit_child)
+
+    def move_child_to_front(self, child):
+        self.children.remove(child)
+        self.children.insert(0, child)
+        
     def find_child_node_by_name(self, name):
         return next((c for c in self.children if c.name == name), None)
     
@@ -126,9 +132,9 @@ class Node:
             self.dep.debug_dump(prefix + "    ")
         else:
             debug("{}dep = {}", prefix, self.dep)
-        self._debug_dump_content(prefix)
         debug("{}abs_path = {}", prefix, self.abs_path)
         debug("{}explicit = {}", prefix, self.explicit)
+        debug("{}real_node = {}", prefix, self.real_node)        
         if recurse:
             debug("{}parent = {}", prefix, self.parent)
             debug("{}children[] = {{", prefix)
@@ -138,13 +144,11 @@ class Node:
                 c.debug_dump("{}[{}] ".format(prefix, i), recurse)
             debug("{}}}", prefix)
 
-    def _debug_dump_content(self, prefix):
-        pass
-
 # --------------------------------------------------------------------------------
 class RealNode(Node):
     def __init__(self, tree, dep, parent=None):
         Node.__init__(self, tree, dep, parent)
+        self.real_node = self
         
     def __str__(self):
         return "RealNode '{}' at {}".format(self.name, self.abs_path)
@@ -173,17 +177,12 @@ class TopNode(RealNode):
 # --------------------------------------------------------------------------------
 class LinkNode(Node):
     def __init__(self, top_node, parent):
-        self.top_node = top_node
-        self.parent_top_node = (parent.top_node if isinstance(parent, LinkNode) else parent)
         Node.__init__(self, top_node.tree, top_node.dep, parent)
-        self.abs_path = os.path.join(self.parent_top_node.abs_path, top_node.rel_path)
+        self.abs_path = os.path.join(self.parent.real_node.abs_path, top_node.rel_path)
+        self.real_node = top_node
         
     def __str__(self):
         return "LinkNode '{}' at {}".format(self.name, self.abs_path)
-
-    def _debug_dump_content(self, prefix):
-        debug("{}top_node = {}", prefix, self.top_node)
-        debug("{}parent_top_node = {}", prefix, self.parent_top_node)
     
 # --------------------------------------------------------------------------------
 class Tree:
@@ -200,7 +199,7 @@ class Tree:
             if dep.name == top_node.name:
                 return top_node
         top_node = TopNode(self, dep, self.root_node)
-        self.top_nodes.append(top_node)
+        self.top_nodes.insert(0, top_node)
         return top_node
 
     def resolve_dep_to_node(self, dep, parent_node):
@@ -214,6 +213,7 @@ class Tree:
         return link_node
 
     def move_top_node_to_front(self, top_node):
+        self.root_node.move_child_to_front(top_node)
         self.top_nodes.remove(top_node)
         self.top_nodes.insert(0, top_node)
 
@@ -222,7 +222,9 @@ class Tree:
 
     def debug_dump_brief(self, node, prefix=""):
         flag = ("explicit" if node.explicit is True else "implicit")
-        debug("{}{} {} {}", prefix, node.name, flag, node.abs_path)
+        style = ("link" if isinstance(node, LinkNode) else
+                 ("top" if isinstance(node, TopNode) else "root"))
+        debug("{}{} {} {} {}", prefix, node.name, flag, style, node.abs_path)
         for child in node.children:
             self.debug_dump_brief(child, prefix + "  ")
     
