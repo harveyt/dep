@@ -69,13 +69,44 @@ class Node:
         if parent is not None:
             parent.children.append(self)
 
+    @property
+    def name(self):
+        return self.dep.name
+
+    @property
+    def rel_path(self):
+        return self.dep.rel_path
+
+    @property
+    def url(self):
+        return self.dep.url
+
+    @property
+    def vcs(self):
+        return self.dep.vcs
+    
+    @property
+    def branch(self):
+        return self.dep.branch
+
+    @property
+    def commit(self):
+        return self.dep.commit
+
+    def read_child_deps_from_config(self, abs_path):
+        return self.dep.read_children_from_config(abs_path)
+    
     def __str__(self):
-        return "Node '{}' at {}".format(self.dep.name, self.abs_path)
+        return "Node '{}' at {}".format(self.name, self.abs_path)
                          
     def debug_dump(self, prefix="", recurse=False):
         debug("{}--- {} ---", prefix, self)
         debug("{}tree = {}", prefix, self.tree)
-        debug("{}dep = {}", prefix, self.dep)
+        if recurse:
+            debug("{}dep =", prefix)
+            self.dep.debug_dump(prefix + "    ")
+        else:
+            debug("{}dep = {}", prefix, self.dep)
         self._debug_dump_content(prefix)
         debug("{}abs_path = {}", prefix, self.abs_path)
         debug("{}explicit = {}", prefix, self.explicit)
@@ -101,16 +132,16 @@ class RootNode(Node):
         self.explicit = True
 
     def __str__(self):
-        return "RootNode '{}' at {}".format(self.dep.name, self.abs_path)
+        return "RootNode '{}' at {}".format(self.name, self.abs_path)
 
 # --------------------------------------------------------------------------------
 class TopNode(Node):
     def __init__(self, tree, dep, parent):
         Node.__init__(self, tree, dep, parent)
-        self.abs_path = os.path.join(tree.root_node.abs_path, dep.rel_path)
+        self.abs_path = os.path.join(tree.root_node.abs_path, self.rel_path)
         
     def __str__(self):
-        return "TopNode '{}' at {}".format(self.dep.name, self.abs_path)
+        return "TopNode '{}' at {}".format(self.name, self.abs_path)
 
 # --------------------------------------------------------------------------------
 class LinkNode(Node):
@@ -118,10 +149,10 @@ class LinkNode(Node):
         self.top_node = top_node
         self.parent_top_node = (parent.top_node if isinstance(parent, LinkNode) else parent)
         Node.__init__(self, top_node.tree, top_node.dep, parent)
-        self.abs_path = os.path.join(self.parent_top_node.abs_path, top_node.dep.rel_path)
+        self.abs_path = os.path.join(self.parent_top_node.abs_path, top_node.rel_path)
         
     def __str__(self):
-        return "LinkNode '{}' at {}".format(self.dep.name, self.abs_path)
+        return "LinkNode '{}' at {}".format(self.name, self.abs_path)
 
     def _debug_dump_content(self, prefix):
         debug("{}top_node = {}", prefix, self.top_node)
@@ -137,14 +168,14 @@ class Tree:
         self._read_dependency_tree(self.root_node)
         
     def _read_dependency_tree(self, parent_node):
-        child_deps = parent_node.dep.read_children_from_config(parent_node.abs_path)
+        child_deps = parent_node.read_child_deps_from_config(parent_node.abs_path)
         for child_dep in child_deps:
             child_node = self.resolve_dep_to_node(child_dep, parent_node)
             self._read_dependency_tree(child_node)
 
     def resolve_dep_to_top_node(self, dep):
         for top_node in self.top_nodes:
-            if dep.name == top_node.dep.name:
+            if dep.name == top_node.name:
                 return top_node
         top_node = TopNode(self, dep, self.root_node)
         self.top_nodes.append(top_node)
@@ -165,7 +196,7 @@ class Tree:
         self.top_nodes.insert(0, top_node)
 
     def __str__(self):
-        return "Tree '{}' at {}".format(self.root_node.dep.name, self.root_node.abs_path)
+        return "Tree '{}' at {}".format(self.root_node.name, self.root_node.abs_path)
     
     def debug_dump(self, prefix=""):
         debug("{}--- {} ---", prefix, self)
