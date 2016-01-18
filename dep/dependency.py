@@ -219,11 +219,11 @@ class Node:
 
 # --------------------------------------------------------------------------------
 class RealNode(Node):
-    def __init__(self, tree, abs_path, dep, parent=None):
+    def __init__(self, tree, abs_path, dep, parent=None, url=None):
         conf = config.Config(os.path.join(abs_path, ".depconfig"))
         Node.__init__(self, tree, abs_path, dep, conf, parent)
         self.real_node = self
-        self.repository = None
+        self.repository = scm.Repository.create(self.abs_path, url)
         
     def __str__(self):
         return "RealNode '{}' at {}".format(self.name, self.abs_path)
@@ -243,7 +243,6 @@ class RootNode(RealNode):
         root_dep = Dependency.create_root(root_path)
         RealNode.__init__(self, tree, root_path, root_dep)
         self.explicit = True
-        self.repository = scm.Repository.create(self.abs_path, None)
 
     def __str__(self):
         return "RootNode '{}' at {}".format(self.name, self.abs_path)
@@ -252,8 +251,7 @@ class RootNode(RealNode):
 class TopNode(RealNode):
     def __init__(self, tree, dep, parent):
         abs_path = os.path.join(tree.root_node.abs_path, dep.rel_path)
-        RealNode.__init__(self, tree, abs_path, dep, parent)
-        self.repository = scm.Repository.create(self.abs_path, self.url)
+        RealNode.__init__(self, tree, abs_path, dep, parent, dep.url)
         
     def _refresh_disk(self):
         verbose("Refresh {}", self)
@@ -376,5 +374,5 @@ class Tree:
 # --------------------------------------------------------------------------------
 def test_dependency(root_path):
     tree = Tree(root_path)
-    tree.refresh_dependency_tree()
+    tree.record_dependency_tree()
     tree.debug_dump()
