@@ -99,9 +99,19 @@ class Node:
             child_node = self.tree.resolve_dep_to_node(child_dep, self)
             child_node.read_dependency_tree()
 
-    def read_child_deps_from_config(self, abs_path):
-        return 
-
+    def add_implicit_children(self):
+        explicit_children = [c for c in self.children if c.explicit is True]
+        for child_node in explicit_children:
+            if child_node.explicit is False:
+                continue
+            child_node.add_implicit_children()
+            for child_child_node in child_node.children:
+                existing_child = self.find_child_node_by_name(child_child_node.name)
+                if existing_child is not None:
+                    continue
+                implicit_top_child = (child_child_node.top_node if isinstance(child_child_node, LinkNode) else child_child_node)
+                implicit_child = LinkNode(implicit_top_child, self)
+                    
     def find_child_node_by_name(self, name):
         return next((c for c in self.children if c.name == name), None)
     
@@ -175,6 +185,7 @@ class Tree:
 
     def read_dependency_tree(self):
         self.root_node.read_dependency_tree()
+        self.root_node.add_implicit_children()
 
     def resolve_dep_to_top_node(self, dep):
         for top_node in self.top_nodes:
@@ -200,9 +211,17 @@ class Tree:
 
     def __str__(self):
         return "Tree '{}' at {}".format(self.root_node.name, self.root_node.abs_path)
+
+    def debug_dump_brief(self, node, prefix=""):
+        flag = ("explicit" if node.explicit is True else "implicit")
+        debug("{}{} {} {}", prefix, node.name, flag, node.abs_path)
+        for child in node.children:
+            self.debug_dump_brief(child, prefix + "  ")
     
     def debug_dump(self, prefix=""):
         debug("{}--- {} ---", prefix, self)
+        debug("{}Brief:", prefix)
+        self.debug_dump_brief(self.root_node, prefix)
         debug("{}root_node = ", prefix)
         self.root_node.debug_dump(prefix + "    ", True)
         debug("{}top_nodes = {{", prefix)
