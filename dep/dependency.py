@@ -131,7 +131,7 @@ class Node:
                 if existing_child is not None:
                     continue
                 implicit_real_child = child_child_node.real_node
-                implicit_child = LinkNode(implicit_real_child, self)
+                implicit_child = self.tree._create_link_node(implicit_real_child, self)
                 self.move_child_to_front(implicit_child)
 
     def move_child_to_front(self, child):
@@ -161,7 +161,7 @@ class Node:
         if isinstance(self, RootNode):
             top_node.explicit = True
             return top_node
-        link_node = LinkNode(top_node, self)
+        link_node = self.tree._create_link_node(top_node, self)
         link_node.explicit = True
         return link_node
     
@@ -231,17 +231,25 @@ class LinkNode(Node):
 # --------------------------------------------------------------------------------
 class Tree:
     def __init__(self, root_path):
-        self.root_node = RootNode(self, root_path)
+        self.root_node = self._create_root_node_for_path(root_path)
         self.top_nodes = []
 
     def read_dependency_tree(self):
         self.root_node.read_dependency_tree()
         self.root_node.add_implicit_children()
 
+    def _create_root_node_for_path(self, root_path):
+        root_node = RootNode(self, root_path)
+        return root_node
+
     def _create_top_node_for_dep(self, dep):
         top_node = TopNode(self, dep, self.root_node)
         self.top_nodes.append(top_node)
         return top_node
+
+    def _create_link_node(self, top_node, parent):
+        link_node = LinkNode(top_node, parent)
+        return link_node
 
     def _move_top_node_to_front(self, top_node):
         self.root_node.move_child_to_front(top_node)
