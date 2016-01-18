@@ -168,6 +168,9 @@ class Node:
         link_node = self.tree._create_link_node(top_node, self)
         link_node.explicit = True
         return link_node
+
+    def refresh_disk(self):
+        pass
     
     def __str__(self):
         return "Node '{}' at {}".format(self.name, self.abs_path)
@@ -201,7 +204,7 @@ class RealNode(Node):
         conf = config.Config(os.path.join(abs_path, ".depconfig"))
         Node.__init__(self, tree, abs_path, dep, conf, parent)
         self.real_node = self
-        
+
     def __str__(self):
         return "RealNode '{}' at {}".format(self.name, self.abs_path)
                  
@@ -221,6 +224,9 @@ class TopNode(RealNode):
     def __init__(self, tree, dep, parent):
         abs_path = os.path.join(tree.root_node.abs_path, dep.rel_path)
         RealNode.__init__(self, tree, abs_path, dep, parent)
+
+    def refresh_disk(self):
+        verbose("Refresh {}", self)
         
     def __str__(self):
         return "TopNode '{}' at {}".format(self.name, self.abs_path)
@@ -231,6 +237,16 @@ class LinkNode(Node):
         abs_path = os.path.join(parent.real_node.abs_path, top_node.rel_path)
         Node.__init__(self, top_node.tree, abs_path, top_node.dep, top_node.config, parent)
         self.real_node = top_node
+
+    def refresh_disk(self):
+        verbose("Refresh {}", self)
+        if not os.path.isdir(self.abs_path):
+            status("Linking {}\n     to {}", self.abs_path, self.real_node.abs_path)
+            source_abs_path = self.real_node.abs_path
+            dest_abs_path = self.abs_path
+            debug("source_abs_path={}", source_abs_path)
+            debug("dest_abs_path={}", dest_abs_path)
+            make_relative_symlink(source_abs_path, dest_abs_path)
         
     def __str__(self):
         return "LinkNode '{}' at {}".format(self.name, self.abs_path)
@@ -240,10 +256,15 @@ class Tree:
     def __init__(self, root_path):
         self.root_node = self._create_root_node_for_path(root_path)
         self.top_nodes = []
+        self.refresh_mode = False
 
     def read_dependency_tree(self):
         self.root_node.read_dependency_tree()
         self.root_node.add_implicit_children()
+
+    def _refresh_disk(self, node):
+        if self.refresh_mode:
+            node.refresh_disk()
 
     def _create_root_node_for_path(self, root_path):
         root_node = RootNode(self, root_path)
@@ -252,10 +273,12 @@ class Tree:
     def _create_top_node_for_dep(self, dep):
         top_node = TopNode(self, dep, self.root_node)
         self.top_nodes.append(top_node)
+        self._refresh_disk(top_node)
         return top_node
 
     def _create_link_node(self, top_node, parent):
         link_node = LinkNode(top_node, parent)
+        self._refresh_disk(link_node)        
         return link_node
 
     def _move_top_node_to_front(self, top_node):
@@ -290,6 +313,7 @@ class Tree:
 # --------------------------------------------------------------------------------
 def test_dependency(root_path):
     tree = Tree(root_path)
+    tree.refresh_mode = True
     tree.read_dependency_tree()
     tree.debug_dump()
 
