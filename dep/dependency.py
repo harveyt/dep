@@ -194,28 +194,30 @@ class Tree:
         self.root_node.read_dependency_tree()
         self.root_node.add_implicit_children()
 
-    def resolve_dep_to_top_node(self, dep):
-        for top_node in self.top_nodes:
-            if dep.name == top_node.name:
-                return top_node
-        top_node = TopNode(self, dep, self.root_node)
+    def find_top_node_by_name(self, name):
+        return next((c for c in self.top_nodes if c.name == name), None)
+
+    def _move_top_node_to_front(self, top_node):
+        self.root_node.move_child_to_front(top_node)
+        self.top_nodes.remove(top_node)
         self.top_nodes.insert(0, top_node)
+    
+    def resolve_dep_to_top_node(self, dep):
+        top_node = self.find_top_node_by_name(dep.name)
+        if top_node is None:
+            top_node = TopNode(self, dep, self.root_node)
+            self.top_nodes.insert(0, top_node)
+        self._move_top_node_to_front(top_node)
         return top_node
 
     def resolve_dep_to_node(self, dep, parent_node):
         top_node = self.resolve_dep_to_top_node(dep)
-        self.move_top_node_to_front(top_node)
         if parent_node is self.root_node:
             top_node.explicit = True
             return top_node
         link_node = LinkNode(top_node, parent_node)
         link_node.explicit = True
         return link_node
-
-    def move_top_node_to_front(self, top_node):
-        self.root_node.move_child_to_front(top_node)
-        self.top_nodes.remove(top_node)
-        self.top_nodes.insert(0, top_node)
 
     def __str__(self):
         return "Tree '{}' at {}".format(self.root_node.name, self.root_node.abs_path)
