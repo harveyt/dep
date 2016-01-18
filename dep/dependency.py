@@ -116,20 +116,26 @@ class Node:
         if self.config.need_read:
             if self.config.exists():
                 self.config.read()
-        
-    def read_dependency_tree(self):
+
+    def write_config(self):
+        if self.config.need_write:
+            self.repository.pre_edit(self.config.path)
+            self.config.write()
+            self.repository.post_edit(self.config.path)
+                
+    def _build_dependency_tree(self):
         self.read_config()
         child_deps = self.dep.read_children_from_config(self.config)
         for child_dep in reversed(child_deps):
             child_node = self.resolve_child_by_dep(child_dep)
-            child_node.read_dependency_tree()
+            child_node._build_dependency_tree()
 
-    def add_implicit_children(self):
+    def _add_implicit_children(self):
         explicit_children = [c for c in self.children if c.explicit is True]
         for child_node in explicit_children:
             if child_node.explicit is False:
                 continue
-            child_node.add_implicit_children()
+            child_node._add_implicit_children()
             for child_child_node in reversed(child_node.children):
                 existing_child = self.find_child_node_by_name(child_child_node.name)
                 if existing_child is not None:
@@ -169,7 +175,16 @@ class Node:
         link_node.explicit = True
         return link_node
 
-    def refresh_disk(self):
+    def find_child_config_section(self, child_node):
+        child_name = child_node.name
+        if not self.config.has_section("dep", child_name):
+            return None
+        return self.config["dep.{}".format(child_name)]
+
+    def _refresh_disk(self):
+        pass
+
+    def _record_disk(self):
         pass
     
     def __str__(self):
@@ -228,7 +243,7 @@ class RootNode(RealNode):
         root_dep = Dependency.create_root(root_path)
         RealNode.__init__(self, tree, root_path, root_dep)
         self.explicit = True
-        # TODO: Initialize repository correctly?
+        self.repository = scm.Repository.create(self.abs_path, None)
 
     def __str__(self):
         return "RootNode '{}' at {}".format(self.name, self.abs_path)
@@ -240,12 +255,20 @@ class TopNode(RealNode):
         RealNode.__init__(self, tree, abs_path, dep, parent)
         self.repository = scm.Repository.create(self.abs_path, self.url)
         
-    def refresh_disk(self):
+    def _refresh_disk(self):
         verbose("Refresh {}", self)
         self.repository.branch = self.branch
         self.repository.commit = self.commit
         self.repository.refresh()
-            
+
+    def _record_disk(self):
+        verbose("Record {}", self)
+        self.repository.branch = self.branch
+        self.repository.commit = self.commit
+        self.repository.record()
+        parent_section = self.parent.find_child_config_section(self)
+        self.repository.write_state_to_config_section(parent_section)
+        
     def __str__(self):
         return "TopNode '{}' at {}".format(self.name, self.abs_path)
 
@@ -256,7 +279,7 @@ class LinkNode(Node):
         Node.__init__(self, top_node.tree, abs_path, top_node.dep, top_node.config, parent)
         self.real_node = top_node
 
-    def refresh_disk(self):
+    def _refresh_disk(self):
         verbose("Refresh {}", self)
         if not os.path.isdir(self.abs_path):
             status("Linking {}\n     to {}", self.abs_path, self.real_node.abs_path)
@@ -275,14 +298,36 @@ class Tree:
         self.root_node = self._create_root_node_for_path(root_path)
         self.top_nodes = []
         self.refresh_mode = False
+        self.record_mode = False
 
+    def _build_dependency_tree(self):
+        self.root_node._build_dependency_tree()
+        self.root_node._add_implicit_children()
+        if self.record_mode:
+            for top_node in self.top_nodes:
+                top_node._record_disk()
+            for top_node in self.top_nodes:
+                top_node.write_config()
+            self.root_node.write_config()
+            
     def read_dependency_tree(self):
-        self.root_node.read_dependency_tree()
-        self.root_node.add_implicit_children()
+        self.refresh_mode = False
+        self.record_mode = False
+        self._build_dependency_tree()
+
+    def refresh_dependency_tree(self):
+        self.refresh_mode = True
+        self.record_mode = False
+        self._build_dependency_tree()
+
+    def record_dependency_tree(self):
+        self.refresh_mode = False
+        self.record_mode = True        
+        self._build_dependency_tree()
 
     def _refresh_disk(self, node):
         if self.refresh_mode:
-            node.refresh_disk()
+            node._refresh_disk()
 
     def _create_root_node_for_path(self, root_path):
         root_node = RootNode(self, root_path)
@@ -331,9 +376,5 @@ class Tree:
 # --------------------------------------------------------------------------------
 def test_dependency(root_path):
     tree = Tree(root_path)
-    tree.refresh_mode = True
-    tree.read_dependency_tree()
+    tree.refresh_dependency_tree()
     tree.debug_dump()
-
-    
-
