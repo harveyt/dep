@@ -93,8 +93,17 @@ class Node:
     def commit(self):
         return self.dep.commit
 
+    def read_dependency_tree(self):
+        child_deps = self.dep.read_children_from_config(self.abs_path)
+        for child_dep in child_deps:
+            child_node = self.tree.resolve_dep_to_node(child_dep, self)
+            child_node.read_dependency_tree()
+
     def read_child_deps_from_config(self, abs_path):
-        return self.dep.read_children_from_config(abs_path)
+        return 
+
+    def find_child_node_by_name(self, name):
+        return next((c for c in self.children if c.name == name), None)
     
     def __str__(self):
         return "Node '{}' at {}".format(self.name, self.abs_path)
@@ -165,13 +174,7 @@ class Tree:
         self.top_nodes = []
 
     def read_dependency_tree(self):
-        self._read_dependency_tree(self.root_node)
-        
-    def _read_dependency_tree(self, parent_node):
-        child_deps = parent_node.read_child_deps_from_config(parent_node.abs_path)
-        for child_dep in child_deps:
-            child_node = self.resolve_dep_to_node(child_dep, parent_node)
-            self._read_dependency_tree(child_node)
+        self.root_node.read_dependency_tree()
 
     def resolve_dep_to_top_node(self, dep):
         for top_node in self.top_nodes:
