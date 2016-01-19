@@ -436,18 +436,3 @@ class Tree:
                 debug("{},".format(prefix))
             c.debug_dump("{}[{}] ".format(prefix, i))
         debug("{}}}", prefix)
-
-# --------------------------------------------------------------------------------
-def test_dependency(root_path):
-    tree = Tree()
-    kw = dict()
-    kw['list_local'] = True
-    tree.status_dependency_tree(kw)
-
-# TODO: For tree
-# add_new_dependency(url)
-# branch_dependency(name, startpoint, kw) -> branch_dependency_tree
-# commit_dependency(args, kw) -> commit_dependency_tree
-# foreach_dependency(args, kw) 
-# initialize_new_config()
-# list_dependencies(kw) -> list_dependency_tree
