@@ -193,7 +193,35 @@ class Node:
 
     def _status_disk(self, kw):
         pass
-    
+
+    def _run_command(self, cmd, kw=None):
+        status_seperator()
+        status("## {}:", self)
+        status("##")
+        allow_failure = (None if kw is None else kw.get('allow_failure'))
+        old_quiet = opts.args.quiet
+        opts.args.quiet = False
+        run(*cmd, shell=True, cwd=self.abs_path, allow_failure=allow_failure)
+        opts.args.quiet = old_quiet
+
+    def _foreach_run(self, cmd, kw):
+        if self._foreach_run_pre(kw):
+            self._run_command(cmd, kw)
+            self._foreach_run_post(kw)
+
+    def _foreach_run_pre(self, kw):
+        if kw.get('foreach_only_modified') and not self.repository.has_local_modifications():
+            return False
+        if kw.get('foreach_only_ahead') and not self.repository.is_ahead():
+            return False
+        return True
+
+    def _foreach_run_post(self, kw):
+        if kw.get('foreach_record') and not opts.args.dry_run:
+            self.tree.record_dependency_tree()
+        if kw.get('foreach_refresh') and not opts.args.dry_run:
+            self.tree.refresh_dependency_tree()
+            
     def __str__(self):
         return "Node '{}' at {}".format(self.name, self.abs_path)
                          
@@ -374,6 +402,13 @@ class Tree:
         for node in node_list:
             node._status_disk(kw)
             kw['status_first'] = False
+
+    def foreach_dependency(self, cmd, kw):
+        self._validate_has_repository()        
+        self.read_dependency_tree()
+        node_list = TreeList(self, kw).build()
+        for node in node_list:
+            node._foreach_run(cmd, kw)
 
     #        
     # End General Tree API

@@ -8,8 +8,8 @@ from dep import *
 from dep.helpers import *
 
 def command_foreach(args):
-    root = comp.RootComponent()
-    root.foreach_dependency(opts.rest_args, vars(args))
+    tree = dependency.Tree()
+    tree.foreach_dependency(opts.rest_args, vars(args))
 
 parser_foreach = opts.subparsers.add_parser("foreach",
                                             help="Run a shell command for each dependency",
