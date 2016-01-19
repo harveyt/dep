@@ -167,6 +167,8 @@ class Node:
 
     def _resolve_child_top_node_by_dep(self, dep):
         top_node = self._get_child_top_node_by_dep(dep)
+        if isinstance(self, RootNode):
+            top_node.explicit = True
         self.tree._move_top_node_to_front(top_node)
         return top_node
 
@@ -181,7 +183,6 @@ class Node:
     def resolve_child_by_dep(self, dep):
         top_node = self._resolve_child_top_node_by_dep(dep)
         if isinstance(self, RootNode):
-            top_node.explicit = True
             return top_node
         link_node = self._resolve_child_link_node(top_node)
         return link_node
@@ -288,9 +289,9 @@ class RealNode(Node):
         new_dep.rel_path = rel_path
         new_dep.url = url
         new_dep.vcs = vcs                        
-        verbose("Adding dependency {}\n     to {}", new_dep, self)
         # Resolve the dependency to what should be a new top node
-        new_top_node = self.resolve_child_by_dep(new_dep)
+        new_top_node = self._resolve_child_top_node_by_dep(new_dep)
+        verbose("Adding {}\n    as {}\n    to {}", new_dep, new_top_node, self)
         return new_top_node
         
     def _add_disk(self, url):
@@ -307,6 +308,7 @@ class RealNode(Node):
         new_config_section["relpath"] = rel_path
         # Refresh to disk, then record disk state.
         new_top_node._refresh_disk()
+        self.tree.debug_dump()
         new_top_node._record_disk()
         new_top_node.dep.branch = new_top_node.repository.branch
         new_top_node.dep.commit = new_top_node.repository.commit
