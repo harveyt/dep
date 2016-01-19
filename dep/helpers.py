@@ -178,6 +178,12 @@ def make_relative_symlink(src, dst):
     except OSError, e:
         error("Cannot make relative symlink from '{}' to '{}': {}", src, dst, e)
 
+def add_local_arguments(parser):
+    parser.add_argument("-l", "--local", dest="local", action="store_true",
+                        help="Add the new dependency under the local dependency.")
+    parser.add_argument("--root", dest="local", action="store_false",
+                        help="Add the new dependency under the root dependency (default).")
+    
 def add_list_arguments(parser):
     parser.add_argument("--no-root", dest="list_root", action="store_false",
                         help="Do not include the root project in list of dependencies")

@@ -455,9 +455,7 @@ class Tree:
     def add_dependency(self, url):
         self._validate_has_repository()
         self.read_dependency_tree()
-        parent_node = self.root_node
-        if opts.args.local:
-            parent_node = self._find_local_real_node()
+        parent_node = self._get_root_or_local_node()
         parent_node._add_disk(url)
         self.refresh_dependency_tree()
     
@@ -471,7 +469,16 @@ class Tree:
         commit_msg = "Created branch '{}'{}".format(branch_name, starting_msg)
         kw.update(foreach_force_all=True)
         self.commit_dependency_tree(["--allow-empty", "-m", commit_msg], kw)
-    
+
+    def checkout_dependency_tree(self, checkout_args, kw):
+        # TODO: Should call self.repository to do work!
+        node = self._get_root_or_local_node()
+        work_dir = node.repository.work_dir
+        quiet_flag = node.repository.quiet_flag
+        status("Checkout {}\n    in '{}'", node, work_dir)
+        run("git", "checkout", quiet_flag, *checkout_args, cwd=work_dir)
+        self.refresh_dependency_tree()
+        
     def commit_dependency_tree(self, commit_args, kw):
         # TODO: Should call self.repository to do work!
         self.foreach_dependency(["git", "add", "--all", "."], kw)
@@ -543,6 +550,12 @@ class Tree:
             error("Cannot add name '{}'\n    Already exists as {}", name, existing_node)
 
     # --------------------------------------------------------------------------------
+
+    def _get_root_or_local_node(self):
+        node = self.root_node
+        if opts.args.local:
+            node = self._find_local_real_node()
+        return node
         
     def _build_dependency_tree(self):
         self.root_node._build_dependency_tree()
