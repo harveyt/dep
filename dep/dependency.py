@@ -122,6 +122,10 @@ class Node:
             self.repository.pre_edit(self.config.path)
             self.config.write()
             self.repository.post_edit(self.config.path)
+
+    def _validate_has_repository(self):
+        if self.repository is None or self.repository.vcs == "file":
+            error("{} does not have a non-file based SCM repository", self)
                 
     def _build_dependency_tree(self):
         self.read_config()
@@ -334,6 +338,8 @@ class Tree:
     def __init__(self, root_path=None):
         if root_path is None:
             root_path = find_root_work_dir()
+            if root_path is None:
+                error("Cannot find root dependency working directory from '{}'", os.getcwd())
         root_path = os.path.realpath(root_path)
         self.root_node = self._create_root_node_for_path(root_path)
         self.top_nodes = []
@@ -349,16 +355,19 @@ class Tree:
         self._build_dependency_tree()
 
     def refresh_dependency_tree(self):
+        self._validate_has_repository()
         self.refresh_mode = True
         self.record_mode = False
         self._build_dependency_tree()
 
     def record_dependency_tree(self):
+        self._validate_has_repository()        
         self.refresh_mode = False
         self.record_mode = True        
         self._build_dependency_tree()
 
     def status_dependency_tree(self, kw):
+        self._validate_has_repository()        
         self.read_dependency_tree()
         node_list = TreeList(self, kw).build()
         kw['status_first'] = True
@@ -369,7 +378,10 @@ class Tree:
     #        
     # End General Tree API
     # --------------------------------------------------------------------------------
-    
+
+    def _validate_has_repository(self):
+        self.root_node._validate_has_repository()
+        
     def _build_dependency_tree(self):
         self.root_node._build_dependency_tree()
         self.root_node._add_implicit_children()
@@ -405,7 +417,10 @@ class Tree:
         self.top_nodes.insert(0, top_node)
 
     def _find_local_real_node(self):
-        local_real_path = os.path.realpath(find_local_work_dir())
+        local_work_dir = find_local_work_dir()
+        if local_work_dir is None:
+            error("Cannot find local dependency working directory from '{}'", os.getcwd())
+        local_real_path = os.path.realpath(local_work_dir)
         if self.root_node.abs_path == local_real_path:
             return self.root_node
         for top_node in self.top_nodes:
