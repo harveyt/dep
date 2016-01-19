@@ -8,8 +8,8 @@ from dep import *
 from dep.helpers import *
 
 def command_record(args):
-    root = comp.RootComponent()
-    root.record_dependencies()
+    tree = dependency.Tree()
+    tree.record_dependency_tree()
 
 parser_record = opts.subparsers.add_parser("record",
                                            help="Record dependencies from current source repository state",

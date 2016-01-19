@@ -8,8 +8,8 @@ from dep import *
 from dep.helpers import *
 
 def command_refresh(args):
-    root = comp.RootComponent()
-    root.refresh_dependencies()
+    tree = dependency.Tree()
+    tree.refresh_dependency_tree()
 
 parser_refresh = opts.subparsers.add_parser("refresh",
                                             help="Refresh dependencies from their source repositories",
