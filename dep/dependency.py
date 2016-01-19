@@ -201,7 +201,7 @@ class Node:
     def _refresh_disk(self):
         pass
 
-    def _record_disk(self):
+    def _record_disk(self, to_parent=None):
         pass
 
     def _status_disk(self, kw):
@@ -284,15 +284,29 @@ class RealNode(Node):
         self.repository.commit = self.commit
         self.repository.status(self.rel_path, kw)
 
-    def _add_top_node(self, name, rel_path, url, vcs):
+    def _add_child_node(self, name, rel_path, url, vcs):
         new_dep = Dependency(name)
         new_dep.rel_path = rel_path
         new_dep.url = url
         new_dep.vcs = vcs                        
         # Resolve the dependency to what should be a new top node
-        new_top_node = self._resolve_child_top_node_by_dep(new_dep)
+        new_node = self.resolve_child_by_dep(new_dep)
+        new_top_node = new_node.real_node
+        new_config_section = self.add_child_config_section(name)
+        new_config_section["relpath"] = rel_path
         verbose("Adding {}\n    as {}\n    to {}", new_dep, new_top_node, self)
-        return new_top_node
+        self.tree.debug_dump("1:")
+        return new_node
+
+    def _add_child_node_refresh_and_record(self, new_node):
+        new_top_node = new_node.real_node
+        new_parent_top_node = new_node.parent.real_node
+        new_top_node._refresh_disk()
+        new_top_node.read_config()
+        self.tree.debug_dump("2:")        
+        new_top_node._record_disk(new_parent_top_node)
+        new_top_node.dep.branch = new_top_node.repository.branch
+        new_top_node.dep.commit = new_top_node.repository.commit
         
     def _add_disk(self, url):
         # Determine default values from url
@@ -302,22 +316,15 @@ class RealNode(Node):
         dep_dir = self.config["core"]["default-dep-dir"]
         rel_path = os.path.join(dep_dir, name)
         vcs = scm.Repository.determine_vcs_from_url(url)
-        # Add the new top node
-        new_top_node = self._add_top_node(name, rel_path, url, vcs)
-        new_config_section = self.add_child_config_section(name)
-        new_config_section["relpath"] = rel_path
-        # Refresh to disk, then record disk state.
-        new_top_node._refresh_disk()
-        self.tree.debug_dump()
-        new_top_node._record_disk()
-        new_top_node.dep.branch = new_top_node.repository.branch
-        new_top_node.dep.commit = new_top_node.repository.commit
-        # Write out this config which will have changed
+        # Create new child top node
+        new_node = self._add_child_node(name, rel_path, url, vcs)
+        new_top_node = new_node.real_node
+        # Refresh the new child node and then record its state
+        self._add_child_node_refresh_and_record(new_node)
+        # Write our config (which now includes new node)
         self.write_config()
-        # Ignore the dependency directory
+        # Ignore the new top node directory
         self.repository.add_ignore(new_top_node.rel_path)
-        # Read the new top node config so any contents will be refreshed
-        new_top_node.read_config()        
         
     def __str__(self):
         return "RealNode '{}' at {}".format(self.name, self.abs_path)
@@ -362,12 +369,15 @@ class TopNode(RealNode):
         self.repository.commit = self.commit
         self.repository.refresh()
 
-    def _record_disk(self):
+    def _record_disk(self, to_parent=None):
         verbose("Record {}", self)
+        if to_parent is None:
+            to_parent = self.parent
         self.repository.branch = self.branch
         self.repository.commit = self.commit
         self.repository.record()
-        parent_section = self.parent.find_child_config_section(self)
+        to_parent.config.debug_dump("3:")
+        parent_section = to_parent.find_child_config_section(self)
         self.repository.write_state_to_config_section(parent_section)
         
     def __str__(self):

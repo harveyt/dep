@@ -68,9 +68,6 @@ test_file_contains .depconfig "[core]
 	commit = $commit
 "
 test_git_work_dir_exists $ROOT_path/dep/B
-test_file_contains $ROOT_path/dep/B/.depconfig "[core]
-	default-dep-dir = dep
-"
 test_symlink_exists $ROOT_path/dep/A/dep/B $ROOT_path/dep/B
 
 
