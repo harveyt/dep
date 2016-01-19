@@ -186,6 +186,9 @@ class Node:
 
     def _record_disk(self):
         pass
+
+    def _status_disk(self, kw):
+        pass
     
     def __str__(self):
         return "Node '{}' at {}".format(self.name, self.abs_path)
@@ -224,7 +227,12 @@ class RealNode(Node):
         Node.__init__(self, tree, abs_path, dep, conf, parent)
         self.real_node = self
         self.repository = scm.Repository.create(self.abs_path, url)
-        
+
+    def _status_disk(self, kw):
+        self.repository.branch = self.branch
+        self.repository.commit = self.commit
+        self.repository.status(self.rel_path, kw)
+    
     def __str__(self):
         return "RealNode '{}' at {}".format(self.name, self.abs_path)
 
@@ -355,7 +363,7 @@ class Tree:
         node_list = TreeList(self, kw).build()
         kw['status_first'] = True
         for node in node_list:
-            node.repository.status(node.rel_path, kw)
+            node._status_disk(kw)
             kw['status_first'] = False
 
     #        
@@ -443,4 +451,3 @@ def test_dependency(root_path):
 # foreach_dependency(args, kw) 
 # initialize_new_config()
 # list_dependencies(kw) -> list_dependency_tree
-# status_dependencies() -> status_dependency_tree
