@@ -410,6 +410,13 @@ class Tree:
         for node in node_list:
             node._foreach_run(cmd, kw)
 
+    def list_dependency_tree(self, kw):
+        self._validate_has_repository()        
+        self.read_dependency_tree()
+        node_list = TreeList(self, kw).build()
+        for node in node_list:
+            print node.name
+            
     #        
     # End General Tree API
     # --------------------------------------------------------------------------------
