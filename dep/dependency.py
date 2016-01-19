@@ -377,6 +377,17 @@ class Tree:
     # --------------------------------------------------------------------------------
     # Begin General Tree API
     #
+    def branch_dependency_tree(self, branch_name, branch_startpoint, kw):
+        self._validate_has_repository()        
+        self.read_dependency_tree()
+        node_list = TreeList(self, kw).build()
+        for node in node_list:
+            node.repository.create_branch(branch_name, branch_startpoint)
+        starting_msg = (" with start point '{}'".format(branch_startpoint) if branch_startpoint is not None else "")
+        commit_msg = "Created branch '{}'{}".format(branch_name, starting_msg)
+        kw.update(foreach_force_all=True)
+        self.commit_dependency_tree(["--allow-empty", "-m", commit_msg], kw)
+    
     def commit_dependency_tree(self, commit_args, kw):
         # TODO: Should call self.repository to do work!
         self.foreach_dependency(["git", "add", "--all", "."], kw)

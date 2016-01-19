@@ -8,8 +8,8 @@ from dep import *
 from dep.helpers import *
 
 def command_branch(args):
-    root = comp.RootComponent()
-    root.branch_dependencies(args.name, args.startpoint, vars(args))
+    tree = dependency.Tree()
+    tree.branch_dependency_tree(args.name, args.startpoint, vars(args))
     
 parser_branch = opts.subparsers.add_parser("branch",
                                       help="Branch all dependencies to new branch",
