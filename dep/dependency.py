@@ -201,6 +201,9 @@ class Node:
     def _status_disk(self, kw):
         pass
 
+    def _init_disk(self):
+        error("Cannot initialise '{}'", self)
+
     def _run_command(self, cmd, kw=None):
         status_seperator()
         status("## {}:", self)
@@ -291,6 +294,15 @@ class RootNode(RealNode):
         RealNode.__init__(self, tree, root_path, root_dep)
         self.explicit = True
 
+    def _init_disk(self):
+        verbose("Initializing {}", self)
+        validate_file_notexists(self.config.path)
+        core = self.config.add_section("core")
+        core["default-dep-dir"] = "dep"
+        self.config.need_read = False
+        self.write_config()
+        self.debug_dump("init post: ")
+        
     def __str__(self):
         return "RootNode '{}' at {}".format(self.name, self.abs_path)
 
@@ -410,6 +422,9 @@ class Tree:
         node_list = TreeList(self, kw).build()
         for node in node_list:
             node._foreach_run(cmd, kw)
+
+    def init_dependency(self):
+        self.root_node._init_disk()
 
     def list_dependency_tree(self, kw):
         self._validate_has_repository()        
