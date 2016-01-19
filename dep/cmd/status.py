@@ -8,8 +8,8 @@ from dep import *
 from dep.helpers import *
 
 def command_status(args):
-    root = comp.RootComponent()
-    root.status_dependencies(vars(args))
+    tree = dependency.Tree()
+    tree.status_dependency_tree(vars(args))
     
 parser_status = opts.subparsers.add_parser("status",
                                            help="Show dependency status for all source repositories",

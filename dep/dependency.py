@@ -289,25 +289,52 @@ class LinkNode(Node):
         
     def __str__(self):
         return "LinkNode '{}' at {}".format(self.name, self.abs_path)
-    
+
+# --------------------------------------------------------------------------------
+class TreeList:
+    def __init__(self, tree, kw):
+        self.tree = tree
+        self.list_children = kw.get('list_children')
+        self.list_implicit_children = kw.get('list_implicit_children')
+        self.list_local = kw.get('list_local')
+        self.list_top = kw.get('list_top') or (not self.list_children and
+                                               not self.list_implicit_children and
+                                               not self.list_local)
+        self.list_root = kw.get('list_root')
+
+    def build(self):
+        items = []
+        if self.list_top:
+            items.extend(self.tree.top_nodes)
+            if self.list_root:
+                items.append(self.tree.root_node)
+        else:
+            local_node = self.tree._find_local_real_node()
+            if self.list_children:
+                for child in local_node.children:
+                    if child.explicit is True:
+                        items.append(child.real_node)
+            elif self.list_implicit_children:
+                items.extend(local_node.children)
+            elif self.list_local:
+                items.extend(local_node.children)
+                items.append(local_node)
+        return items
+        
 # --------------------------------------------------------------------------------
 class Tree:
-    def __init__(self, root_path):
+    def __init__(self, root_path=None):
+        if root_path is None:
+            root_path = find_root_work_dir()
+        root_path = os.path.realpath(root_path)
         self.root_node = self._create_root_node_for_path(root_path)
         self.top_nodes = []
         self.refresh_mode = False
         self.record_mode = False
 
-    def _build_dependency_tree(self):
-        self.root_node._build_dependency_tree()
-        self.root_node._add_implicit_children()
-        if self.record_mode:
-            for top_node in self.top_nodes:
-                top_node._record_disk()
-            for top_node in self.top_nodes:
-                top_node.write_config()
-            self.root_node.write_config()
-            
+    # --------------------------------------------------------------------------------
+    # Begin General Tree API
+    #
     def read_dependency_tree(self):
         self.refresh_mode = False
         self.record_mode = False
@@ -323,6 +350,28 @@ class Tree:
         self.record_mode = True        
         self._build_dependency_tree()
 
+    def status_dependency_tree(self, kw):
+        self.read_dependency_tree()
+        node_list = TreeList(self, kw).build()
+        kw['status_first'] = True
+        for node in node_list:
+            node.repository.status(node.rel_path, kw)
+            kw['status_first'] = False
+
+    #        
+    # End General Tree API
+    # --------------------------------------------------------------------------------
+    
+    def _build_dependency_tree(self):
+        self.root_node._build_dependency_tree()
+        self.root_node._add_implicit_children()
+        if self.record_mode:
+            for top_node in self.top_nodes:
+                top_node._record_disk()
+            for top_node in self.top_nodes:
+                top_node.write_config()
+            self.root_node.write_config()
+        
     def _refresh_disk(self, node):
         if self.refresh_mode:
             node._refresh_disk()
@@ -346,6 +395,15 @@ class Tree:
         self.root_node.move_child_to_front(top_node)
         self.top_nodes.remove(top_node)
         self.top_nodes.insert(0, top_node)
+
+    def _find_local_real_node(self):
+        local_real_path = os.path.realpath(find_local_work_dir())
+        if self.root_node.abs_path == local_real_path:
+            return self.root_node
+        for top_node in self.top_nodes:
+            if top_node.abs_path == local_real_path:
+                return top_node
+        return None
     
     def __str__(self):
         return "Tree '{}' at {}".format(self.root_node.name, self.root_node.abs_path)
@@ -373,6 +431,16 @@ class Tree:
 
 # --------------------------------------------------------------------------------
 def test_dependency(root_path):
-    tree = Tree(root_path)
-    tree.record_dependency_tree()
-    tree.debug_dump()
+    tree = Tree()
+    kw = dict()
+    kw['list_local'] = True
+    tree.status_dependency_tree(kw)
+
+# TODO: For tree
+# add_new_dependency(url)
+# branch_dependency(name, startpoint, kw) -> branch_dependency_tree
+# commit_dependency(args, kw) -> commit_dependency_tree
+# foreach_dependency(args, kw) 
+# initialize_new_config()
+# list_dependencies(kw) -> list_dependency_tree
+# status_dependencies() -> status_dependency_tree
