@@ -296,7 +296,7 @@ class GitRepository(Repository):
 
     def _get_describe(self):
         actual_branch = self._get_branch()
-        describe = run_query("git", "describe", "--contains", actual_branch, "--always", cwd=self.work_dir).rstrip("\n")
+        describe = run_query("git", "describe", "--tags", "--always", cwd=self.work_dir).rstrip("\n")
         # TODO: Check it is valid!
         return describe
 
@@ -327,24 +327,30 @@ class GitRepository(Repository):
         changes, ahead, behind = self._get_status()
         mod = "?" if changes is None else ("*" if changes else " ")
         if branch is None:
-            branch = " " + actual_branch
+            branch_diff = " "
         else:
-            branch = (" " if branch == actual_branch else "*") + actual_branch
+            branch_diff = (" " if branch == actual_branch else "*")
         if commit is None:
             commit_diff = " "
         else:
             commit_diff = (" " if commit == actual_commit else "*")
         ahead = "?" if ahead is None else ahead
         behind = "?" if behind is None else behind
-        branch = self._branch_name_from_ref(branch)
-        if not kw.get('status_commit'):
+        actual_branch = self._branch_name_from_ref(actual_branch)
+        show_commit = kw.get('status_commit')
+        show_describe = kw.get('status_describe')
+        if not show_commit and not show_describe:
+            show_commit = (actual_branch != "master")
+            show_describe = (actual_branch == "master")
+        if not show_commit or show_describe:
             actual_commit = self._get_describe()
         commit_value = commit_diff + actual_commit
+        branch_value = branch_diff + actual_branch
         lead = ("## " if kw.get('status_long') else "")
         if kw.get('status_first'):
             status("{}M  Branch           Commit                                   Push Pull Path", lead)
             status("{}-  ---------------  ---------------------------------------- ---- ---- --------------------------", lead)
-        status("{}{:1} {:16} {:41} {:>4} {:>4} {}", lead, mod, branch, commit_value, ahead, behind, path)
+        status("{}{:1} {:16} {:41} {:>4} {:>4} {}", lead, mod, branch_value, commit_value, ahead, behind, path)
     
     def status_long(self, path, kw):
         status_seperator()
