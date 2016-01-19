@@ -8,8 +8,8 @@ from dep import *
 from dep.helpers import *
 
 def command_tag(args):
-    root = comp.RootComponent()
-    root.foreach_dependency(["git", "tag"] + opts.rest_args, vars(args))
+    tree = dependency.Tree()
+    tree.foreach_dependency(["git", "tag"] + opts.rest_args, vars(args))
 
 parser_tag = opts.subparsers.add_parser("tag",
                                       help="Tag each dependency",

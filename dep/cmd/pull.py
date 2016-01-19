@@ -8,8 +8,8 @@ from dep import *
 from dep.helpers import *
 
 def command_pull(args):
-    root = comp.RootComponent()
-    root.foreach_dependency(["git", "pull"] + opts.rest_args, vars(args))
+    tree = dependency.Tree()
+    tree.foreach_dependency(["git", "pull"] + opts.rest_args, vars(args))
 
 parser_pull = opts.subparsers.add_parser("pull",
                                       help="Pull changes for each dependency",

@@ -8,8 +8,8 @@ from dep import *
 from dep.helpers import *
 
 def command_diff(args):
-    root = comp.RootComponent()
-    root.foreach_dependency(["git", "diff"] + opts.rest_args, vars(args))
+    tree = dependency.Tree()
+    tree.foreach_dependency(["git", "diff"] + opts.rest_args, vars(args))
 
 parser_diff = opts.subparsers.add_parser("diff",
                                       help="Diff changes for each dependency",

@@ -8,8 +8,8 @@ from dep import *
 from dep.helpers import *
 
 def command_fetch(args):
-    root = comp.RootComponent()
-    root.foreach_dependency(["git", "fetch"] + opts.rest_args, vars(args))
+    tree = dependency.Tree()
+    tree.foreach_dependency(["git", "fetch"] + opts.rest_args, vars(args))
 
 parser_fetch = opts.subparsers.add_parser("fetch",
                                       help="Fetch changes for each dependency",
