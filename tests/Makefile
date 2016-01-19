@@ -2,6 +2,7 @@ TESTS	= test-init \
 	  test-init-with-git \
 	  test-add \
 	  test-add-fails-without-vcs \
+	  test-add-non-root \
 	  test-config-work-dir \
 	  test-refresh-simple \
 	  test-refresh-older \

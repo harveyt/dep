@@ -1,0 +1,78 @@
+#!/bin/bash
+. helpers
+
+#
+# Build a two level dependency chain, but using add of B to A from A.
+#
+# ROOT -> A -> B
+#
+test_git_create_repo ROOT
+ROOT_url=$(test_repo_url ROOT)
+ROOT_path=$(test_repo_path ROOT)
+
+test_git_create_repo A
+A_url=$(test_repo_url A)
+A_path=$(test_repo_path A)
+
+test_git_create_repo B
+B_url=$(test_repo_url B)
+B_path=$(test_repo_path B)
+
+# Create empty ROOT.
+cd $ROOT_path
+test_exec $DEP init
+test_exec git commit -m "Add empty ROOT dependency."
+test_exec git push
+
+# Create empty A.
+cd $A_path
+test_exec $DEP init
+test_exec git commit -m "Add empty A dependency."
+test_exec git push
+
+# Now add A to ROOT.
+cd $ROOT_path
+url=$(test_repo_url A)
+commit=$(test_repo_git_commit A)
+test_exec $DEP add "$A_url"
+test_file_contains .depconfig "[core]
+	default-dep-dir = dep
+
+[dep \"A\"]
+	relpath = dep/A
+	url = $url
+	vcs = git
+	branch = refs/heads/master
+	commit = $commit
+"
+test_git_work_dir_exists $ROOT_path/dep/A
+test_file_contains $ROOT_path/dep/A/.depconfig "[core]
+	default-dep-dir = dep
+"
+test_exec git commit -m "Add ROOT -> A dependency."
+test_exec git push
+
+# Now add B to A, from under ROOT.
+cd $ROOT_path/dep/A
+url=$(test_repo_url B)
+commit=$(test_repo_git_commit B)
+test_exec $DEP add -l "$B_url"
+test_file_contains .depconfig "[core]
+	default-dep-dir = dep
+
+[dep \"B\"]
+	relpath = dep/B
+	url = $url
+	vcs = git
+	branch = refs/heads/master
+	commit = $commit
+"
+test_git_work_dir_exists $ROOT_path/dep/B
+test_file_contains $ROOT_path/dep/B/.depconfig "[core]
+	default-dep-dir = dep
+"
+test_symlink_exists $ROOT_path/dep/A/dep/B $ROOT_path/dep/B
+
+
+
+
