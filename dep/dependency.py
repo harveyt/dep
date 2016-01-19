@@ -295,15 +295,18 @@ class RealNode(Node):
         new_config_section = self.add_child_config_section(name)
         new_config_section["relpath"] = rel_path
         verbose("Adding {}\n    as {}\n    to {}", new_dep, new_top_node, self)
-        self.tree.debug_dump("1:")
         return new_node
 
     def _add_child_node_refresh_and_record(self, new_node):
         new_top_node = new_node.real_node
         new_parent_top_node = new_node.parent.real_node
+        # Refresh both the real node and possibly the link node
         new_top_node._refresh_disk()
+        if new_node is not new_top_node:
+            new_node._refresh_disk()
+        # Read the config (for any dependencies from new node)
         new_top_node.read_config()
-        self.tree.debug_dump("2:")        
+        # Record new node state
         new_top_node._record_disk(new_parent_top_node)
         new_top_node.dep.branch = new_top_node.repository.branch
         new_top_node.dep.commit = new_top_node.repository.commit
@@ -376,7 +379,6 @@ class TopNode(RealNode):
         self.repository.branch = self.branch
         self.repository.commit = self.commit
         self.repository.record()
-        to_parent.config.debug_dump("3:")
         parent_section = to_parent.find_child_config_section(self)
         self.repository.write_state_to_config_section(parent_section)
         

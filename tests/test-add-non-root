@@ -56,7 +56,7 @@ test_exec git push
 cd $ROOT_path/dep/A
 url=$(test_repo_url B)
 commit=$(test_repo_git_commit B)
-test_exec $DEP add -l "$B_url"
+test_exec $DEP -v add -l "$B_url"
 test_file_contains .depconfig "[core]
 	default-dep-dir = dep
 
