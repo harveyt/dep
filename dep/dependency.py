@@ -10,7 +10,7 @@ from dep.helpers import *
 
 # --------------------------------------------------------------------------------
 class Dependency:
-    def __init__(self, name, parent=None):
+    def __init__(self, name):
         self.name = name
         self.rel_path = None
         self.url = None
@@ -28,7 +28,7 @@ class Dependency:
     def read_children_from_config(self, conf):
         children = []
         for section in conf.sections_named("dep"):
-            child = Dependency(section.subname, self)
+            child = Dependency(section.subname)
             child._populate_from_config_section(section)            
             children.append(child)
         return children
@@ -192,6 +192,11 @@ class Node:
             return None
         return self.config["dep.{}".format(child_name)]
 
+    def add_child_config_section(self, child_name):
+        if self.config.has_section("dep", child_name):
+            error("Cannot add {} to {}, already exists", child_name, self)
+        return self.config.add_section("dep", child_name)
+            
     def _refresh_disk(self):
         pass
 
@@ -203,6 +208,9 @@ class Node:
 
     def _init_disk(self):
         error("Cannot initialise '{}'", self)
+
+    def _add_disk(self, url):
+        pass
 
     def _run_command(self, cmd, kw=None):
         status_seperator()
@@ -274,7 +282,41 @@ class RealNode(Node):
         self.repository.branch = self.branch
         self.repository.commit = self.commit
         self.repository.status(self.rel_path, kw)
-    
+
+    def _add_top_node(self, name, rel_path, url, vcs):
+        new_dep = Dependency(name)
+        new_dep.rel_path = rel_path
+        new_dep.url = url
+        new_dep.vcs = vcs                        
+        verbose("Adding dependency {}\n     to {}", new_dep, self)
+        # Resolve the dependency to what should be a new top node
+        new_top_node = self.resolve_child_by_dep(new_dep)
+        return new_top_node
+        
+    def _add_disk(self, url):
+        # Determine default values from url
+        self.tree._validate_url_notexists(url)
+        name = scm.Repository.determine_name_from_url(url)
+        self.tree._validate_name_notexists(name)
+        dep_dir = self.config["core"]["default-dep-dir"]
+        rel_path = os.path.join(dep_dir, name)
+        vcs = scm.Repository.determine_vcs_from_url(url)
+        # Add the new top node
+        new_top_node = self._add_top_node(name, rel_path, url, vcs)
+        new_config_section = self.add_child_config_section(name)
+        new_config_section["relpath"] = rel_path
+        # Refresh to disk, then record disk state.
+        new_top_node._refresh_disk()
+        new_top_node._record_disk()
+        new_top_node.dep.branch = new_top_node.repository.branch
+        new_top_node.dep.commit = new_top_node.repository.commit
+        # Write out this config which will have changed
+        self.write_config()
+        # Ignore the dependency directory
+        self.repository.add_ignore(new_top_node.rel_path)
+        # Read the new top node config so any contents will be refreshed
+        new_top_node.read_config()        
+        
     def __str__(self):
         return "RealNode '{}' at {}".format(self.name, self.abs_path)
 
@@ -396,6 +438,15 @@ class Tree:
     # --------------------------------------------------------------------------------
     # Begin General Tree API
     #
+    def add_dependency(self, url):
+        self._validate_has_repository()
+        self.read_dependency_tree()
+        parent_node = self.root_node
+        if opts.args.local:
+            parent_node = self._find_local_real_node()
+        parent_node._add_disk(url)
+        self.refresh_dependency_tree()
+    
     def branch_dependency_tree(self, branch_name, branch_startpoint, kw):
         self._validate_has_repository()        
         self.read_dependency_tree()
@@ -462,9 +513,22 @@ class Tree:
     #        
     # End General Tree API
     # --------------------------------------------------------------------------------
-
+    # Validation
+    
     def _validate_has_repository(self):
         self.root_node._validate_has_repository()
+
+    def _validate_url_notexists(self, url):
+        existing_node = self._find_real_node_by_url(url)
+        if existing_node is not None:
+            error("Cannot add URL '{}'\n    Already exists as {}", url, existing_node)
+
+    def _validate_name_notexists(self, name):
+        existing_node = self._find_real_node_by_name(name)
+        if existing_node is not None:
+            error("Cannot add name '{}'\n    Already exists as {}", name, existing_node)
+
+    # --------------------------------------------------------------------------------
         
     def _build_dependency_tree(self):
         self.root_node._build_dependency_tree()
@@ -505,10 +569,29 @@ class Tree:
         if local_work_dir is None:
             error("Cannot find local dependency working directory from '{}'", os.getcwd())
         local_real_path = os.path.realpath(local_work_dir)
-        if self.root_node.abs_path == local_real_path:
+        return self._find_real_node_by_abs_path(local_real_path)
+
+    def _find_real_node_by_abs_path(self, abs_path):
+        if self.root_node.abs_path == abs_path:
             return self.root_node
         for top_node in self.top_nodes:
-            if top_node.abs_path == local_real_path:
+            if top_node.abs_path == abs_path:
+                return top_node
+        return None
+
+    def _find_real_node_by_url(self, url):
+        if self.root_node.url == url:
+            return self.root_node
+        for top_node in self.top_nodes:
+            if top_node.url == url:
+                return top_node
+        return None
+
+    def _find_real_node_by_name(self, name):
+        if self.root_node.name == name:
+            return self.root_node
+        for top_node in self.top_nodes:
+            if top_node.name == name:
                 return top_node
         return None
     
