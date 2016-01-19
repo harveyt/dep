@@ -8,8 +8,8 @@ from dep import *
 from dep.helpers import *
 
 def command_commit(args):
-    root = comp.RootComponent()
-    root.commit_dependencies(opts.rest_args, vars(args))
+    tree = dependency.Tree()
+    tree.commit_dependency_tree(opts.rest_args, vars(args))
 
 parser_commit = opts.subparsers.add_parser("commit",
                                       help="Commit changes for each dependency",

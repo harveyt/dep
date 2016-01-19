@@ -377,6 +377,29 @@ class Tree:
     # --------------------------------------------------------------------------------
     # Begin General Tree API
     #
+    def commit_dependency_tree(self, commit_args, kw):
+        # TODO: Should call self.repository to do work!
+        self.foreach_dependency(["git", "add", "--all", "."], kw)
+        if kw.get('foreach_force_all'):
+            kw.update(foreach_record=True, foreach_only_modified=False)
+        else:
+            kw.update(foreach_record=True, foreach_only_modified=True)
+        self.foreach_dependency(["git", "commit"] + commit_args, kw)
+        
+    def foreach_dependency(self, cmd, kw):
+        self._validate_has_repository()        
+        self.read_dependency_tree()
+        node_list = TreeList(self, kw).build()
+        for node in node_list:
+            node._foreach_run(cmd, kw)
+
+    def list_dependency_tree(self, kw):
+        self._validate_has_repository()        
+        self.read_dependency_tree()
+        node_list = TreeList(self, kw).build()
+        for node in node_list:
+            print node.name
+    
     def read_dependency_tree(self):
         self.refresh_mode = False
         self.record_mode = False
@@ -402,20 +425,6 @@ class Tree:
         for node in node_list:
             node._status_disk(kw)
             kw['status_first'] = False
-
-    def foreach_dependency(self, cmd, kw):
-        self._validate_has_repository()        
-        self.read_dependency_tree()
-        node_list = TreeList(self, kw).build()
-        for node in node_list:
-            node._foreach_run(cmd, kw)
-
-    def list_dependency_tree(self, kw):
-        self._validate_has_repository()        
-        self.read_dependency_tree()
-        node_list = TreeList(self, kw).build()
-        for node in node_list:
-            print node.name
             
     #        
     # End General Tree API
