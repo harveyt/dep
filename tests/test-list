@@ -15,7 +15,6 @@ A_url=$(test_repo_url A)
 A_path=$(test_repo_path A)
 
 cd $ROOT_path
-test_output_from_exec "ROOT\n" $DEP_PATH list
 test_exec $DEP init
 test_output_from_exec "ROOT\n" $DEP_PATH list
 test_exec $DEP add "$A_url"
