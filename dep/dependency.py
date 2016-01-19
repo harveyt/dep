@@ -170,13 +170,20 @@ class Node:
         self.tree._move_top_node_to_front(top_node)
         return top_node
 
+    def _resolve_child_link_node(self, top_node):
+        for node in self.children:
+            if isinstance(node, LinkNode) and node.real_node is top_node:
+                return node
+        link_node = self.tree._create_link_node(top_node, self)
+        link_node.explicit = True
+        return link_node
+
     def resolve_child_by_dep(self, dep):
         top_node = self._resolve_child_top_node_by_dep(dep)
         if isinstance(self, RootNode):
             top_node.explicit = True
             return top_node
-        link_node = self.tree._create_link_node(top_node, self)
-        link_node.explicit = True
+        link_node = self._resolve_child_link_node(top_node)
         return link_node
 
     def find_child_config_section(self, child_node):
