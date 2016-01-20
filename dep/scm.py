@@ -192,7 +192,7 @@ class GitRepository(Repository):
     def checkout(self, branch=None, commit=None):
         if not self._need_checkout(branch=branch, commit=commit):
             return
-        branch_flag = None if branch is None else "-B"
+        branch_flag = None if branch is None or commit is None else "-B"
         branch_name = None if branch is None else self._branch_name_from_ref(branch)
         commit_flag = None if commit is None else commit
         branch_mesg = "" if branch is None else "\n    on branch '{}'".format(branch)        

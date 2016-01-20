@@ -16,7 +16,7 @@ parser_checkout = opts.subparsers.add_parser("checkout",
                                              description="Checkout current dependency, refresh children. Synonym for \"git checkout\" followed by \"dep refresh\".")
 add_local_arguments(parser_checkout)
 parser_checkout.add_argument("name",
-                           help="Name of branch to checkout, must exist")
+                             help="Name of branch to checkout, must exist")
 parser_checkout.add_argument("startpoint", nargs="?",
-                           help="Optional start point for each branch, should be a common tag")
+                             help="Optional start point to checkout, either tag or commit")
 parser_checkout.set_defaults(func=command_checkout)

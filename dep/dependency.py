@@ -472,17 +472,7 @@ class Tree:
 
     def checkout_dependency_tree(self, branch_name, branch_startpoint, kw):
         node = self._get_root_or_local_node()
-        work_dir = node.repository.work_dir
-        quiet_flag = node.repository.quiet_flag
-        # TODO: Merge this functionality into Repository.checkout(), not exactly same though
-        branch_msg = "\n    on branch '{}'".format(branch_name)
-        commit_msg = ""
-        checkout_args = [branch_name]
-        if branch_startpoint is not None:
-            commit_msg = "\n    at commit '{}'".format(branch_startpoint)
-            checkout_args = ["-B", branch_name, branch_startpoint]
-        status("Checkout {}{}{}\n    in '{}'", node, branch_msg, commit_msg, work_dir)
-        run("git", "checkout", quiet_flag, *checkout_args, cwd=work_dir)
+        node.repository.checkout(branch_name, branch_startpoint)
         self.refresh_dependency_tree()
         
     def commit_dependency_tree(self, commit_args, kw):
