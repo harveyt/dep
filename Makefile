@@ -13,3 +13,23 @@ install:
 
 test:
 	$(MAKE) -C tests -w test
+
+release:
+	@version=$(VERSION);					\
+	if [[ "$$(git status --porcelain)" != "" ]]; then	\
+		echo "Commit all changes first!" >&2;		\
+		exit 1;						\
+	fi;							\
+	if [[ "$$version" == "" ]]; then			\
+		echo "Set VERSION variable!" >&2;		\
+		exit 1;						\
+	fi;							\
+	echo "Releasing version $$version";			\
+	git tag $$version;					\
+	make install;						\
+	git push;						\
+	git push --tags
+
+
+
+
