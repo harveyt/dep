@@ -206,8 +206,9 @@ class Node:
         return self.config.add_section("dep", child_name)
 
     def _refresh_disk_ignore(self):
-        if not self.parent.repository.has_ignore(self.rel_path):
-            self.parent.repository.add_ignore(self.rel_path)
+        real_parent = self.parent.real_node
+        if not real_parent.repository.has_ignore(self.rel_path):
+            real_parent.repository.add_ignore(self.rel_path)
             
     def _refresh_disk(self):
         pass
