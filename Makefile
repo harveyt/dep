@@ -17,11 +17,13 @@ test:
 release:
 	@version=$(VERSION);					\
 	if [[ "$$(git status --porcelain)" != "" ]]; then	\
-		echo "Commit all changes first!" >&2;		\
+		git status;					\
+		echo "\nerror: Commit all changes first!" >&2;	\
 		exit 1;						\
 	fi;							\
 	if [[ "$$version" == "" ]]; then			\
-		echo "Set VERSION variable!" >&2;		\
+		git tag --column;				\
+		echo "\nerror: Set VERSION variable!" >&2;	\
 		exit 1;						\
 	fi;							\
 	echo "Releasing version $$version";			\
