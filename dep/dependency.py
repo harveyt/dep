@@ -217,7 +217,7 @@ class Node:
         pass
 
     def _status_disk(self, kw):
-        pass
+        return True
 
     def _init_disk(self):
         error("Cannot initialise '{}'", self)
@@ -311,7 +311,7 @@ class RealNode(Node):
     def _status_disk(self, kw):
         self.repository.branch = self.branch
         self.repository.commit = self.commit
-        self.repository.status(self.rel_path, kw)
+        return self.repository.status(self.rel_path, kw)
 
     def _add_child_node(self, name, rel_path, url, vcs):
         new_dep = Dependency(name)
@@ -556,13 +556,21 @@ class Tree:
         self._write_config_dependency_tree()
 
     def status_dependency_tree(self, kw):
+        if kw.get('status_exit_only'):
+            opts.args.quiet = True
+            opts.args.verbose = False
+            kw.update(status_short=True, status_commit=True, status_exit=True)
         self._validate_has_repository()        
         self.read_dependency_tree()
         node_list = TreeList(self, kw).build()
         kw['status_first'] = True
+        is_clean = True
         for node in node_list:
-            node._status_disk(kw)
+            if not node._status_disk(kw):
+                is_clean = False
             kw['status_first'] = False
+        if kw.get('status_exit'):
+            sys.exit(0 if is_clean else 1)
             
     #        
     # End General Tree API

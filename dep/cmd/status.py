@@ -22,5 +22,9 @@ parser_status.add_argument("-d", "--describe", dest="status_describe", action="s
                            help="Status output describes commits using tags (default on master)")
 parser_status.add_argument("--commit", dest="status_commit", action="store_true",
                            help="Status shows full and unique commit (default on non-master)")
+parser_status.add_argument("--exit", dest="status_exit", action="store_true",
+                           help="Exit 0 if no changes under M, Branch or Commit. Exit 1 otherwise.")
+parser_status.add_argument("--exit-only", dest="status_exit_only", action="store_true",
+                           help="Only set exit status, no other output.")
 add_list_arguments(parser_status)
 parser_status.set_defaults(func=command_status)

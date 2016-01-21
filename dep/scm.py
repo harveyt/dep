@@ -127,7 +127,7 @@ class FileRepository(Repository):
         pass
 
     def status(self, path, kw):
-        pass
+        return True
 
     def create_branch(self, name, startpoint):
         pass
@@ -327,9 +327,9 @@ class GitRepository(Repository):
 
     def status(self, path, kw):
         if kw.get('status_long'):
-            self.status_long(path, kw)
+            return self.status_long(path, kw)
         else:
-            self.status_short(path, kw)            
+            return self.status_short(path, kw)            
             
     def status_short(self, path, kw):
         branch = self.branch
@@ -364,14 +364,16 @@ class GitRepository(Repository):
             status("{}M  Branch           Commit                                   Push Pull Path", lead)
             status("{}-  ---------------  ---------------------------------------- ---- ---- --------------------------", lead)
         status("{}{:1} {:16} {:41} {:>4} {:>4} {}", lead, mod, branch_value, commit_value, ahead, behind, path)
+        return (mod == " " and branch_diff == " " and commit_diff == " ")
     
     def status_long(self, path, kw):
         status_seperator()
         kw['status_first'] = True
-        self.status_short(path, kw)
+        is_clean = self.status_short(path, kw)
         status("")        
         run("git", "status", "--long", cwd=self.work_dir)
         status("")
+        return is_clean
 
     def create_branch(self, name, startpoint):
         starting = ("\n    with start point '{}'".format(startpoint) if startpoint is not None else "")
