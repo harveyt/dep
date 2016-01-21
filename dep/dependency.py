@@ -204,6 +204,10 @@ class Node:
         if self.config.has_section("dep", child_name):
             error("Cannot add {} to {}, already exists", child_name, self)
         return self.config.add_section("dep", child_name)
+
+    def _refresh_disk_ignore(self):
+        if not self.parent.repository.has_ignore(self.rel_path):
+            self.parent.repository.add_ignore(self.rel_path)
             
     def _refresh_disk(self):
         pass
@@ -333,8 +337,6 @@ class RealNode(Node):
         self._add_child_node_refresh_and_record(new_node)
         # Write our config (which now includes new node)
         self.write_config()
-        # Ignore the new top node directory
-        self.repository.add_ignore(new_top_node.rel_path)
         
     def __str__(self):
         return "RealNode '{}' at {}".format(self.name, self.abs_path)
@@ -378,6 +380,7 @@ class TopNode(RealNode):
         self.repository.branch = self.branch
         self.repository.commit = self.commit
         self.repository.refresh()
+        self._refresh_disk_ignore()
 
     def _record_disk(self, to_parent=None):
         if to_parent is None:
@@ -408,7 +411,8 @@ class LinkNode(Node):
             debug("source_abs_path={}", source_abs_path)
             debug("dest_abs_path={}", dest_abs_path)
             make_relative_symlink(source_abs_path, dest_abs_path)
-
+        self._refresh_disk_ignore()
+        
     def _record_disk(self, to_parent=None):
         if to_parent is None:
             to_parent = self.parent

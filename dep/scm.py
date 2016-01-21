@@ -214,6 +214,7 @@ class GitRepository(Repository):
             error("Cannot open '{}' for reading: {}'", self.ignore_file, e)
 
     def has_ignore(self, path):
+        path = "/" + path
         ignores = self._read_ignore()
         return path in ignores
 
