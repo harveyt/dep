@@ -329,8 +329,8 @@ class GitRepository(Repository):
         if kw.get('status_long'):
             return self.status_long(path, kw)
         else:
-            return self.status_short(path, kw)            
-            
+            return self.status_short(path, kw)
+
     def status_short(self, path, kw):
         branch = self.branch
         commit = self.commit
@@ -364,8 +364,21 @@ class GitRepository(Repository):
             status("{}M  Branch           Commit                                   Push Pull Path", lead)
             status("{}-  ---------------  ---------------------------------------- ---- ---- --------------------------", lead)
         status("{}{:1} {:16} {:41} {:>4} {:>4} {}", lead, mod, branch_value, commit_value, ahead, behind, path)
-        return (mod == " " and branch_diff == " " and commit_diff == " ")
-    
+        return self._status_is_clean(mod, branch_diff, commit_diff, ahead, behind, kw)
+
+    def _status_is_clean(self, mod, branch_diff, commit_diff, ahead, behind, kw):
+        if mod != " ":
+            return False
+        if branch_diff != " ":
+            return False
+        if commit_diff != " ":
+            return False
+        if kw.get('status_push_clean') and ahead != 0:
+            return False
+        if kw.get('status_pull_clean') and behind != 0:
+            return False
+        return True
+            
     def status_long(self, path, kw):
         status_seperator()
         kw['status_first'] = True
