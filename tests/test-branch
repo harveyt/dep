@@ -26,7 +26,6 @@ test_exec git push
     
 cd $ROOT_path
 test_exec $DEP init
-test_missing_layout
 test_exec $DEP add "$A_url"
 test_exec git commit -m "Add ROOT -> A dependency."
 test_exec git push

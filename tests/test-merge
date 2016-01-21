@@ -1,0 +1,90 @@
+#!/bin/bash
+. helpers
+
+#
+# Build a two level dependency chain:
+#
+# ROOT -> A -> B
+#
+test_git_create_repo ROOT
+ROOT_url=$(test_repo_url ROOT)
+ROOT_path=$(test_repo_path ROOT)
+
+test_git_create_repo A
+A_url=$(test_repo_url A)
+A_path=$(test_repo_path A)
+
+test_git_create_repo B
+B_url=$(test_repo_url B)
+B_path=$(test_repo_path B)
+
+cd $A_path
+test_exec $DEP init
+test_exec $DEP add "$B_url"
+test_exec git commit -m "Add A -> B dependency."
+test_exec git push
+    
+cd $ROOT_path
+test_exec $DEP init
+test_exec $DEP add "$A_url"
+test_exec git commit -m "Add ROOT -> A dependency."
+test_exec git push
+
+# Make a branch
+test_exec $DEP branch develop
+
+# Make a change
+echo "Local change to ROOT" >> FILE-ROOT
+test_exec $DEP commit -m 'Change to FILE-ROOT.'
+
+test_git_branch_equals $ROOT_path develop
+test_git_branch_equals $ROOT_path/dep/A develop
+test_git_branch_equals $ROOT_path/dep/B develop
+
+# Switch back to master
+test_exec $DEP checkout master
+
+test_git_branch_equals $ROOT_path master
+test_git_branch_equals $ROOT_path/dep/A master
+test_git_branch_equals $ROOT_path/dep/B master
+
+ROOT_old_commit=$(test_get_git_commit $ROOT_path/.git)
+A_old_commit=$(test_get_git_commit $ROOT_path/dep/A/.git)
+B_old_commit=$(test_get_git_commit $ROOT_path/dep/B/.git)
+
+# Now merge develop
+test_exec $DEP -D merge develop
+
+# Should be no commits yet, but everything is modified (merge is in progress)
+test_git_commit_equals $ROOT_path $ROOT_old_commit
+test_git_commit_equals $ROOT_path/dep/A $A_old_commit
+test_git_commit_equals $ROOT_path/dep/B $B_old_commit
+
+test_exec $DEP status
+
+test_output_from_exec "\
+M  Branch           Commit                                   Push Pull Path
+-  ---------------  ---------------------------------------- ---- ---- --------------------------
+*  master           $B_old_commit    0    0 dep/B
+*  master           $A_old_commit    0    0 dep/A
+*  master           $ROOT_old_commit    0    0 .
+" $DEP_PATH status --commit
+
+# Now commit merge
+test_exec $DEP commit -m 'Merged develop'
+
+ROOT_new_commit=$(test_get_git_commit $ROOT_path/.git)
+A_new_commit=$(test_get_git_commit $ROOT_path/dep/A/.git)
+B_new_commit=$(test_get_git_commit $ROOT_path/dep/B/.git)
+
+test_git_commit_not_equals $ROOT_path $ROOT_old_commit
+test_git_commit_not_equals $ROOT_path/dep/A $A_old_commit
+test_git_commit_not_equals $ROOT_path/dep/B $B_old_commit
+
+test_output_from_exec "\
+M  Branch           Commit                                   Push Pull Path
+-  ---------------  ---------------------------------------- ---- ---- --------------------------
+   master           $B_new_commit    2    0 dep/B
+   master           $A_new_commit    2    0 dep/A
+   master           $ROOT_new_commit    3    0 .
+" $DEP_PATH status --commit

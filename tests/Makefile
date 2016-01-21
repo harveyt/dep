@@ -10,6 +10,7 @@ TESTS	= test-init \
 	  test-build-two-level \
 	  test-build-two-level-shared \
 	  test-branch \
+	  test-merge \
 	  test-list
 
 test:

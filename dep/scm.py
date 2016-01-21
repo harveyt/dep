@@ -123,6 +123,9 @@ class FileRepository(Repository):
     def record(self):
         pass
 
+    def merge_branch(self, name):
+        pass
+
     def status(self, path, kw):
         pass
 
@@ -263,10 +266,15 @@ class GitRepository(Repository):
                     behind = m.group(5) if m.group(5) else 0
                 else:
                     changes = changes + 1
-        return (changes, ahead, behind)    
+        return (changes, ahead, behind)
+
+    def _is_merge_in_progress(self):
+        # Local modifications if merge is in progress so merge will be committed.
+        merge_head_file = os.path.join(self.git_dir, "MERGE_HEAD")
+        return os.path.exists(merge_head_file)
 
     def has_local_modifications(self):
-        return self._get_status()[0] > 0
+        return self._is_merge_in_progress() or self._get_status()[0] > 0
 
     def is_ahead(self):
         return self._get_status()[1] > 0
@@ -314,6 +322,9 @@ class GitRepository(Repository):
     def _branch_name_from_ref(self, ref):
         return re.sub(r"refs/heads/", "", ref)
 
+    def merge_branch(self, name):
+        run("git", "merge", self.quiet_flag, "--no-commit", "--no-ff", name, cwd=self.work_dir)
+
     def status(self, path, kw):
         if kw.get('status_long'):
             self.status_long(path, kw)
@@ -326,7 +337,8 @@ class GitRepository(Repository):
         actual_branch = self._get_branch()
         actual_commit = self._get_commit()
         changes, ahead, behind = self._get_status()
-        mod = "?" if changes is None else ("*" if changes else " ")
+        merging = self._is_merge_in_progress()
+        mod = "?" if changes is None else ("*" if changes or merging else " ")
         if branch is None:
             branch_diff = " "
         else:

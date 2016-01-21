@@ -212,7 +212,7 @@ class Node:
     def _refresh_disk(self):
         pass
 
-    def _record_disk(self, to_parent=None):
+    def _record_disk(self, to_parent=None, force=False):
         pass
 
     def _status_disk(self, kw):
@@ -251,6 +251,23 @@ class Node:
             self.tree.record_dependency_tree()
         if kw.get('foreach_refresh') and not opts.args.dry_run:
             self.tree.refresh_dependency_tree()
+
+    def _merge_dependency_tree(self, branch_name, kw):
+        real_node = self.real_node
+        status("Merge {}\n    with branch '{}'", real_node, branch_name)
+        real_node.repository.merge_branch(branch_name)
+        # NOTE: The merge will almost certainly change .depconfig.
+        # - The branch and commit will be changed to the incorrect value on disk.
+        #   - The values in-memory (dep and repository) will be the old values.
+        #   - Change the current dependency to None - then record back the correct values.
+        # - New dependencies may be added 
+        #   - TODO: Refresh? Check this works.
+        self._record_disk(None, True)
+        # Merge explicit children
+        for child in self.children:
+            if child.explicit is False:
+                continue
+            child._merge_dependency_tree(branch_name, kw)
             
     def __str__(self):
         return "Node '{}' at {}".format(self.name, self.abs_path)
@@ -380,15 +397,17 @@ class TopNode(RealNode):
         self.repository.refresh()
         self._refresh_disk_ignore()
 
-    def _record_disk(self, to_parent=None):
+    def _record_disk(self, to_parent=None, force=False):
         if to_parent is None:
             to_parent = self.parent
         verbose("Record {}\n    to {}", self, to_parent)
-        self.repository.branch = self.branch
-        self.repository.commit = self.commit
+        self.repository.branch = self.branch if not force else None
+        self.repository.commit = self.commit if not force else None
         self.repository.record()
         parent_section = to_parent.find_child_config_section(self)
         self.repository.write_state_to_config_section(parent_section)
+        if force:
+            to_parent.config.need_write = True
         self.dep.branch = self.repository.branch
         self.dep.commit = self.repository.commit
         
@@ -413,10 +432,10 @@ class LinkNode(Node):
             make_relative_symlink(source_abs_path, dest_abs_path)
         self._refresh_disk_ignore()
         
-    def _record_disk(self, to_parent=None):
+    def _record_disk(self, to_parent=None, force=False):
         if to_parent is None:
             to_parent = self.parent
-        self.real_node._record_disk(to_parent)
+        self.real_node._record_disk(to_parent, force)
         
     def __str__(self):
         return "LinkNode '{}' at {}".format(self.name, self.abs_path)
@@ -511,7 +530,14 @@ class Tree:
         node_list = TreeList(self, kw).build()
         for node in node_list:
             print node.name
-    
+
+    def merge_dependency_tree(self, branch_name, kw):
+        self._validate_has_repository()
+        self.read_dependency_tree()
+        node = self._get_root_or_local_node()
+        node._merge_dependency_tree(branch_name, kw)
+        self._write_config_dependency_tree()
+            
     def read_dependency_tree(self):
         self.refresh_mode = False
         self._build_dependency_tree()
