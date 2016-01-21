@@ -9,6 +9,7 @@ TESTS	= test-init \
 	  test-record-simple \
 	  test-build-two-level \
 	  test-build-two-level-shared \
+	  test-branch \
 	  test-list
 
 test:
