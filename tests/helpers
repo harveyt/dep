@@ -184,10 +184,27 @@ test_repo_git_dir()
     echo "$path.git"
 }
 
+test_get_git_branch()
+{
+    local git_dir=$1
+    local branch=$(git --git-dir $git_dir rev-parse --symbolic-full-name HEAD)
+    echo ${branch#refs/heads/}
+}
+
+test_repo_git_branch()
+{
+    test_get_git_branch $(test_repo_git_dir "$1")
+}
+
+test_get_git_commit()
+{
+    local git_dir=$1
+    echo $(git --git-dir $git_dir rev-parse HEAD)
+}
+
 test_repo_git_commit()
 {
-    local git_dir=$(test_repo_git_dir "$1")
-    echo $(git --git-dir $git_dir rev-parse HEAD)
+    test_get_git_commit $(test_repo_git_dir "$1")
 }
 
 test_git_create_repo()
@@ -232,7 +249,37 @@ test_git_work_dir_missing()
     local git_dir="$path/.git"
     test_dir_missing "$path"
     test_dir_missing "$git_dir"
-}   
+}
+
+test_git_commit_equals()
+{
+    local path="$1"
+    local expected_commit="$2"
+    local actual_commit=$(test_get_git_commit $path/.git)
+    if [[ "$expected_commit" != "$actual_commit" ]]; then
+	test_fail "Mismatch commit for $path: expected $expected_commit, actual $actual_commit"
+    fi
+}
+
+test_git_commit_not_equals()
+{
+    local path="$1"
+    local original_commit="$2"
+    local actual_commit=$(test_get_git_commit $path/.git)
+    if [[ "$original_commit" == "$actual_commit" ]]; then
+	test_fail "Original different commits for $path: original $expected_commit, actual $actual_commit"
+    fi
+}
+
+test_git_branch_equals()
+{
+    local path="$1"
+    local expected_branch="$2"
+    local actual_branch=$(test_get_git_branch $path/.git)
+    if [[ "$expected_branch" != "$actual_branch" ]]; then
+	test_fail "Mismatch branch for $path: expected $expected_branch, actual $actual_branch"
+    fi
+}
 
 test_title
 

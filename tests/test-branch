@@ -1,0 +1,82 @@
+#!/bin/bash
+. helpers
+
+#
+# Build a two level dependency chain:
+#
+# ROOT -> A -> B
+#
+test_git_create_repo ROOT
+ROOT_url=$(test_repo_url ROOT)
+ROOT_path=$(test_repo_path ROOT)
+
+test_git_create_repo A
+A_url=$(test_repo_url A)
+A_path=$(test_repo_path A)
+
+test_git_create_repo B
+B_url=$(test_repo_url B)
+B_path=$(test_repo_path B)
+
+cd $A_path
+test_exec $DEP init
+test_exec $DEP add "$B_url"
+test_exec git commit -m "Add A -> B dependency."
+test_exec git push
+    
+cd $ROOT_path
+test_exec $DEP init
+test_missing_layout
+test_exec $DEP add "$A_url"
+test_exec git commit -m "Add ROOT -> A dependency."
+test_exec git push
+
+ROOT_commit=$(test_repo_git_commit ROOT)
+A_commit=$(test_repo_git_commit A)
+B_commit=$(test_repo_git_commit B)
+
+# Ensure start branch is correct
+test_git_branch_equals $ROOT_path master
+test_git_branch_equals $ROOT_path/dep/A master
+test_git_branch_equals $ROOT_path/dep/B master
+
+# Make a branch
+test_exec $DEP branch develop
+
+# All be on the new branch
+test_git_branch_equals $ROOT_path develop
+test_git_branch_equals $ROOT_path/dep/A develop
+test_git_branch_equals $ROOT_path/dep/B develop
+
+# All be on different commits
+test_git_commit_not_equals $ROOT_path $ROOT_commit
+test_git_commit_not_equals $ROOT_path/dep/A $A_commit
+test_git_commit_not_equals $ROOT_path/dep/B $B_commit
+
+# Ensure new commits/branch recorded
+A_new_commit=$(test_get_git_commit $ROOT_path/dep/A/.git)
+B_new_commit=$(test_get_git_commit $ROOT_path/dep/B/.git)
+
+cd $ROOT_path
+test_file_contains .depconfig "[core]
+	default-dep-dir = dep
+
+[dep \"A\"]
+	relpath = dep/A
+	url = $A_url
+	vcs = git
+	branch = refs/heads/develop
+	commit = $A_new_commit
+"
+
+cd $ROOT_path/dep/A
+test_file_contains .depconfig "[core]
+	default-dep-dir = dep
+
+[dep \"B\"]
+	relpath = dep/B
+	url = $B_url
+	vcs = git
+	branch = refs/heads/develop
+	commit = $B_new_commit
+"

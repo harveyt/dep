@@ -319,8 +319,6 @@ class RealNode(Node):
         new_top_node.read_config()
         # Record new node state
         new_top_node._record_disk(new_parent_top_node)
-        new_top_node.dep.branch = new_top_node.repository.branch
-        new_top_node.dep.commit = new_top_node.repository.commit
         
     def _add_disk(self, url):
         # Determine default values from url
@@ -391,6 +389,8 @@ class TopNode(RealNode):
         self.repository.record()
         parent_section = to_parent.find_child_config_section(self)
         self.repository.write_state_to_config_section(parent_section)
+        self.dep.branch = self.repository.branch
+        self.dep.commit = self.repository.commit
         
     def __str__(self):
         return "TopNode '{}' at {}".format(self.name, self.abs_path)
@@ -477,13 +477,9 @@ class Tree:
     def branch_dependency_tree(self, branch_name, branch_startpoint, kw):
         self._validate_has_repository()        
         self.read_dependency_tree()
-        node_list = TreeList(self, kw).build()
-        for node in node_list:
-            node.repository.create_branch(branch_name, branch_startpoint)
-        starting_msg = (" with start point '{}'".format(branch_startpoint) if branch_startpoint is not None else "")
-        commit_msg = "Created branch '{}'{}".format(branch_name, starting_msg)
-        kw.update(foreach_force_all=True)
-        self.commit_dependency_tree(["--allow-empty", "-m", commit_msg], kw)
+        self._branch_dependency_tree_create(branch_name, branch_startpoint, kw)
+        self.record_dependency_tree()
+        self._branch_dependency_tree_commit(branch_name, branch_startpoint, kw)        
 
     def checkout_dependency_tree(self, branch_name, branch_startpoint, kw):
         node = self._get_root_or_local_node()
@@ -577,6 +573,17 @@ class Tree:
 
     def _record_dependency_tree(self):
         self.root_node._record_dependency_tree()
+
+    def _branch_dependency_tree_create(self, branch_name, branch_startpoint, kw):
+        node_list = TreeList(self, kw).build()
+        for node in node_list:
+            node.repository.create_branch(branch_name, branch_startpoint)
+        
+    def _branch_dependency_tree_commit(self, branch_name, branch_startpoint, kw):
+        starting_msg = (" with start point '{}'".format(branch_startpoint) if branch_startpoint is not None else "")
+        commit_msg = "Created branch '{}'{}".format(branch_name, starting_msg)
+        kw.update(foreach_force_all=True)
+        self.commit_dependency_tree(["--allow-empty", "-m", commit_msg], kw)
 
     def _write_config_dependency_tree(self):
         for top_node in self.top_nodes:
