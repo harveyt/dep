@@ -254,10 +254,19 @@ class GitRepository(Repository):
         self.post_edit(self.ignore_file)
         # TODO: Remove if ignore file is now empty?
 
+    def _is_status_conflict(self, line):
+        style = line[0:2]
+        if style == "DD" or style == "AU" or style == "UD" or style == "UA":
+            return True
+        if style == "DU" or style == "AA" or style == "UU":
+            return True
+        return False
+
     def _get_status(self):
         ahead = 0
         behind = 0
         changes = 0
+        conflicts = 0
         with Pipe("git", "status", "--porcelain", "--branch", cwd=self.work_dir) as p:
             for line in p:
                 m = re.match(r"##\s+[^[]*(\[(\s*ahead\s+(\d+)\s*)?,?(\s*behind\s+(\d+)\s*)?\])?", line)
@@ -265,8 +274,11 @@ class GitRepository(Repository):
                     ahead = m.group(3) if m.group(3) else 0
                     behind = m.group(5) if m.group(5) else 0
                 else:
-                    changes = changes + 1
-        return (changes, ahead, behind)
+                    if self._is_status_conflict(line):
+                        conflicts = conflicts + 1
+                    else:
+                        changes = changes + 1
+        return (changes, ahead, behind, conflicts)
 
     def _is_merge_in_progress(self):
         # Local modifications if merge is in progress so merge will be committed.
@@ -323,7 +335,7 @@ class GitRepository(Repository):
         return re.sub(r"refs/heads/", "", ref)
 
     def merge_branch(self, name):
-        run("git", "merge", self.quiet_flag, "--no-commit", "--no-ff", name, cwd=self.work_dir)
+        run("git", "merge", self.quiet_flag, "--no-commit", "--no-ff", name, cwd=self.work_dir, allow_failure=True)
 
     def status(self, path, kw):
         if kw.get('status_long'):
@@ -336,9 +348,20 @@ class GitRepository(Repository):
         commit = self.commit
         actual_branch = self._get_branch()
         actual_commit = self._get_commit()
-        changes, ahead, behind = self._get_status()
+        changes, ahead, behind, conflicts = self._get_status()
         merging = self._is_merge_in_progress()
-        mod = "?" if changes is None else ("*" if changes or merging else " ")
+        # Determine modification state
+        if changes is None:
+            mod = "?"
+        elif conflicts:
+            mod = "C"
+        elif changes:
+            mod = "*"
+        elif merging:
+            mod = ">"
+        else:
+            mod = " "
+        # Deteremine branch and commit differences
         if branch is None:
             branch_diff = " "
         else:
@@ -347,8 +370,10 @@ class GitRepository(Repository):
             commit_diff = " "
         else:
             commit_diff = (" " if commit == actual_commit else "*")
+        # Determine ahead/behind
         ahead = "?" if ahead is None else ahead
         behind = "?" if behind is None else behind
+        # Determine values to show
         actual_branch = self._branch_name_from_ref(actual_branch)
         show_commit = kw.get('status_commit')
         show_describe = kw.get('status_describe')
