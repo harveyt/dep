@@ -10,7 +10,8 @@ from dep.helpers import *
 def command_push(args):
     tree = dependency.Tree()
     flags = vars(args)
-    flags.update(foreach_only_ahead=True)
+    if "--tags" not in opts.rest_args:
+        flags.update(foreach_only_ahead=True)
     tree.foreach_dependency(["git", "push"] + opts.rest_args, flags)
 
 parser_push = opts.subparsers.add_parser("push",
