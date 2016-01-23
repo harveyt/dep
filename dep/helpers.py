@@ -57,6 +57,16 @@ def validate_dir_notexists(dir):
     if os.path.exists(dir):
         error("Directory '{}' already exists", dir)
 
+def validate_dir_notexists_or_empty(dir):
+    valid = False
+    if os.path.exists(dir):
+        if os.path.isdir(dir) and not os.listdir(dir):
+            valid = True
+    else:
+        valid = True
+    if not valid:
+        error("Directory '{}' exists but is not an empty directory", dir)
+        
 def quote(arg):
     if re.search(r'\s', arg):
         if '"' in arg:

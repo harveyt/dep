@@ -505,6 +505,18 @@ class Tree:
         node = self._get_root_or_local_node()
         node.repository.checkout(branch_name, branch_startpoint)
         self.refresh_dependency_tree()
+
+    @staticmethod
+    def clone_dependency_tree(url, directory, kw):
+        repos = scm.Repository.create(directory, url)
+        repos.download()
+        branch = kw.get('clone_branch')
+        commit = kw.get('clone_commit')
+        repos.checkout(branch, commit)
+        validate_dir_exists(repos.work_dir)
+        os.chdir(repos.work_dir)
+        tree = Tree(repos.work_dir)
+        tree.refresh_dependency_tree()
         
     def commit_dependency_tree(self, commit_args, kw):
         # TODO: Should call self.repository to do work!

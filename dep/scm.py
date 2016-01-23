@@ -55,6 +55,12 @@ class Repository:
     
     @staticmethod
     def create(work_dir, url):
+        if not work_dir:
+            if not url:
+                error("Cannot create repository with no URL and no working directory")
+            name = Repository.determine_name_from_url(url)
+            work_dir = os.path.join(os.getcwd(), name)
+        # Determine vcs (and URL)
         if not url:
             url = "file://{}".format(work_dir)
             vcs = Repository.determine_vcs_from_work_dir(work_dir)
@@ -104,7 +110,7 @@ class FileRepository(Repository):
 
     def checkout(self, branch=None, commit=None):
         pass
-    
+
     def has_ignore(self, path):
         return False
 
@@ -167,7 +173,7 @@ class GitRepository(Repository):
         run("git", "add", path, cwd=self.work_dir)
 
     def download(self):
-        validate_dir_notexists(self.work_dir)
+        validate_dir_notexists_or_empty(self.work_dir)
         validate_dir_notexists(self.git_dir)
         status("Downloading {}\n    from '{}'", self, self.url)
         run("git", "clone", self.quiet_flag, "--no-checkout", self.url, self.work_dir)
