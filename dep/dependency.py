@@ -515,7 +515,7 @@ class Tree:
         repos.checkout(branch, commit)
         validate_dir_exists(repos.work_dir)
         os.chdir(repos.work_dir)
-        tree = Tree(repos.work_dir)
+        tree = Tree()
         tree.refresh_dependency_tree()
         
     def commit_dependency_tree(self, commit_args, kw):
