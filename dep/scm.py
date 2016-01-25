@@ -54,7 +54,7 @@ class Repository:
         return name
     
     @staticmethod
-    def create(work_dir, url=None, name=None):
+    def create(work_dir, url=None, name=None, parent=None):
         # Determine URL and vcs if none provided
         if url is None:
             if work_dir is None:
@@ -71,7 +71,7 @@ class Repository:
             work_dir = os.path.join(os.getcwd(), name)
         # TODO: Support more VCS
         if vcs == "git":
-            return GitRepository(work_dir, url)
+            return GitRepository(work_dir, url, name, parent)
         elif vcs == "file":
             return FileRepository(work_dir, url)
         else:
@@ -142,21 +142,40 @@ class FileRepository(Repository):
         pass
 
 class GitRepository(Repository):
-    def __init__(self, work_dir, url):
-        name = Repository.determine_name_from_url(url)
+    def __init__(self, work_dir, url, name, parent):
+        if parent is not None and not isinstance(parent, GitRepository):
+            error("GitRepository must have Git parent repository or no parent")
         Repository.__init__(self, work_dir, url, "git", name)
         self.dot_git_path = os.path.join(work_dir, ".git")
-        self.git_dir = self.dot_git_path
+        self.git_dir = self._compute_separate_git_dir(parent)
         self.ignore_file = os.path.join(work_dir, ".gitignore")
         self.quiet_flag = "--quiet" if opts.args.quiet else None
 
     def __str__(self):
-        return "{} '{}'".format(self.__class__.__name__, self.work_dir)
+        return "{} '{}'".format(self.__class__.__name__, self.git_dir)
 
     def read_state_from_disk(self):
         if os.path.exists(self.dot_git_path):
             self.branch = self._get_branch()
             self.commit = self._get_commit()
+
+    def _compute_separate_git_dir(self, parent):
+        if parent is None:
+            return self.dot_git_path
+        deps_path = os.path.join("deps", self.name)
+        return os.path.join(parent.git_dir, deps_path)
+
+    def _get_separate_git_dir_flag(self):
+        if self.git_dir == self.dot_git_path:
+            return None
+        else:
+            return "--separate-git-dir"
+        
+    def _get_separate_git_dir_arg(self):
+        if self.git_dir == self.dot_git_path:
+            return None
+        else:
+            return self.git_dir
     
     @staticmethod
     def is_present(work_dir):
@@ -179,7 +198,9 @@ class GitRepository(Repository):
         validate_dir_notexists_or_empty(self.work_dir)
         validate_dir_notexists(self.git_dir)
         status("Downloading {}\n    from '{}'", self, self.url)
-        run("git", "clone", self.quiet_flag, "--no-checkout", self.url, self.work_dir)
+        run("git", "clone",
+            self.quiet_flag, self._get_separate_git_dir_flag(), self._get_separate_git_dir_arg(),
+            "--no-checkout", self.url, self.work_dir)
 
     def _is_working_dir_empty(self):
         work_dir_contents = filter(lambda entry: not entry in [".", "..", ".git"], os.listdir(self.work_dir))

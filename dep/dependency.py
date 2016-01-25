@@ -306,7 +306,8 @@ class RealNode(Node):
         conf = config.Config(os.path.join(abs_path, ".depconfig"))
         Node.__init__(self, tree, abs_path, dep, conf, parent)
         self.real_node = self
-        self.repository = scm.Repository.create(self.abs_path, url=url, name=self.name)
+        parent_repo = None if parent is None else parent.repository
+        self.repository = scm.Repository.create(self.abs_path, url=url, name=self.name, parent=parent_repo)
 
     def _status_disk(self, kw):
         self.repository.branch = self.branch
