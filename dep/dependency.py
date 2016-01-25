@@ -306,7 +306,7 @@ class RealNode(Node):
         conf = config.Config(os.path.join(abs_path, ".depconfig"))
         Node.__init__(self, tree, abs_path, dep, conf, parent)
         self.real_node = self
-        self.repository = scm.Repository.create(self.abs_path, url)
+        self.repository = scm.Repository.create(self.abs_path, url=url, name=self.name)
 
     def _status_disk(self, kw):
         self.repository.branch = self.branch
@@ -508,7 +508,7 @@ class Tree:
 
     @staticmethod
     def clone_dependency_tree(url, directory, kw):
-        repos = scm.Repository.create(directory, url)
+        repos = scm.Repository.create(directory, url=url)
         repos.download()
         branch = kw.get('clone_branch')
         commit = kw.get('clone_commit')

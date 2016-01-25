@@ -54,18 +54,21 @@ class Repository:
         return name
     
     @staticmethod
-    def create(work_dir, url):
-        if not work_dir:
-            if not url:
+    def create(work_dir, url=None, name=None):
+        # Determine URL and vcs if none provided
+        if url is None:
+            if work_dir is None:
                 error("Cannot create repository with no URL and no working directory")
-            name = Repository.determine_name_from_url(url)
-            work_dir = os.path.join(os.getcwd(), name)
-        # Determine vcs (and URL)
-        if not url:
             url = "file://{}".format(work_dir)
             vcs = Repository.determine_vcs_from_work_dir(work_dir)
         else:
             vcs = Repository.determine_vcs_from_url(url)
+        # Determine name if none provided            
+        if name is None:
+            name = Repository.determine_name_from_url(url)
+        # Determine work_dir if none provided
+        if work_dir is None:
+            work_dir = os.path.join(os.getcwd(), name)
         # TODO: Support more VCS
         if vcs == "git":
             return GitRepository(work_dir, url)
