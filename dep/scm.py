@@ -159,13 +159,35 @@ class GitRepository(Repository):
             self.branch = self._get_branch()
             self.commit = self._get_commit()
 
+    def _read_git_dir(self):
+        try:
+            git_dir = None
+            with open(self.dot_git_path, 'r') as f:
+                for line in f:
+                    m = re.match(r"^gitdir:\s+(.*)$", line)
+                    if m:
+                        git_dir = m.group(1)
+                        break
+            if git_dir is None:
+                error("Cannot find gitdir in '{}'", self.dot_git_path)
+            if not os.path.isabs(git_dir):
+                git_dir = os.path.join(self.work_dir, git_dir)
+            return git_dir
+        except IOError, e:
+            error("Cannot open '{}' for reading: {}", self.dot_git_path, e)
+
     def _compute_separate_git_dir(self, parent):
-        if parent is None:
-            return self.dot_git_path
-        # If .git is old style directory, always use that.
+        # If .git exists as directory, either root or old style so use that always.
+        # If .git exists as file, contents determines actual git directory location always.
         if os.path.isdir(self.dot_git_path):
             return self.dot_git_path
-        # Otherwise prefer separate directory under root.
+        elif os.path.isfile(self.dot_git_path):
+            return self._read_git_dir()
+        # Otherwise compute
+        # - Either ".git" in work dir if no parent,
+        # - or deps/name inside parent's git_dir
+        if parent is None:
+            return self.dot_git_path
         deps_path = os.path.join("deps", self.name)
         return os.path.join(parent.git_dir, deps_path)
 
@@ -247,7 +269,7 @@ class GitRepository(Repository):
                     ignores.append(line)
             return ignores
         except IOError, e:
-            error("Cannot open '{}' for reading: {}'", self.ignore_file, e)
+            error("Cannot open '{}' for reading: {}", self.ignore_file, e)
 
     def has_ignore(self, path):
         path = "/" + path
