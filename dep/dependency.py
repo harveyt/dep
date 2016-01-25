@@ -555,11 +555,13 @@ class Tree:
     def read_dependency_tree(self):
         self.refresh_mode = False
         self._build_dependency_tree()
+        self.debug_dump("read:")
 
     def refresh_dependency_tree(self):
         self._validate_has_repository()
         self.refresh_mode = True
         self._build_dependency_tree()
+        self.debug_dump("refresh:")
 
     def record_dependency_tree(self):
         self._validate_has_repository()        
@@ -567,6 +569,7 @@ class Tree:
         self._build_dependency_tree()
         self._record_dependency_tree()
         self._write_config_dependency_tree()
+        self.debug_dump("record:")        
 
     def status_dependency_tree(self, kw):
         if kw.get('status_exit_only'):

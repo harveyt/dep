@@ -162,20 +162,21 @@ class GitRepository(Repository):
     def _compute_separate_git_dir(self, parent):
         if parent is None:
             return self.dot_git_path
+        # If .git is old style directory, always use that.
+        if os.path.isdir(self.dot_git_path):
+            return self.dot_git_path
+        # Otherwise prefer separate directory under root.
         deps_path = os.path.join("deps", self.name)
         return os.path.join(parent.git_dir, deps_path)
 
+    def _is_separate_git_dir(self):
+        return self.git_dir != self.dot_git_path
+
     def _get_separate_git_dir_flag(self):
-        if self.git_dir == self.dot_git_path:
-            return None
-        else:
-            return "--separate-git-dir"
+        return "--separate-git-dir" if self._is_separate_git_dir() else None
         
     def _get_separate_git_dir_arg(self):
-        if self.git_dir == self.dot_git_path:
-            return None
-        else:
-            return self.git_dir
+        return self.git_dir if self._is_separate_git_dir() else None
     
     @staticmethod
     def is_present(work_dir):
@@ -198,6 +199,8 @@ class GitRepository(Repository):
         validate_dir_notexists_or_empty(self.work_dir)
         validate_dir_notexists(self.git_dir)
         status("Downloading {}\n    from '{}'", self, self.url)
+        if self._is_separate_git_dir():
+            make_dirs(os.path.dirname(self.git_dir))
         run("git", "clone",
             self.quiet_flag, self._get_separate_git_dir_flag(), self._get_separate_git_dir_arg(),
             "--no-checkout", self.url, self.work_dir)
