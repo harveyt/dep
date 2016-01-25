@@ -86,7 +86,11 @@ class Repository:
         debug("{}vcs = {}", prefix, self.vcs)
         debug("{}name = {}", prefix, self.name)        
         debug("{}branch = {}", prefix, self.branch)
-        debug("{}commit = {}", prefix, self.commit)        
+        debug("{}commit = {}", prefix, self.commit)
+        self._debug_dump_contents(prefix)
+
+    def _debug_dump_contents(self, prefix):
+        pass
 
 class FileRepository(Repository):
     def __init__(self, work_dir, url):
@@ -146,14 +150,26 @@ class GitRepository(Repository):
         if parent is not None and not isinstance(parent, GitRepository):
             error("GitRepository must have Git parent repository or no parent")
         Repository.__init__(self, work_dir, url, "git", name)
+        self.parent = parent
         self.dot_git_path = os.path.join(work_dir, ".git")
-        self.git_dir = self._compute_separate_git_dir(parent)
+        self.git_dir = self._compute_git_dir()
+        self.git_common_dir = self._compute_git_common_dir()
+        self.is_worktree = self._compute_is_worktree()        
         self.ignore_file = os.path.join(work_dir, ".gitignore")
         self.quiet_flag = "--quiet" if opts.args.quiet else None
 
     def __str__(self):
         return "{} '{}'".format(self.__class__.__name__, self.git_dir)
 
+    def _debug_dump_contents(self, prefix):
+        debug("{}parent = {}", prefix, self.parent)
+        debug("{}dot_git_path = {}", prefix, self.dot_git_path)
+        debug("{}git_dir = {}", prefix, self.git_dir)
+        debug("{}git_common_dir = {}", prefix, self.git_common_dir)
+        debug("{}is_worktree = {}", prefix, self.is_worktree)
+        debug("{}ignore_file = {}", prefix, self.ignore_file)
+        debug("{}quiet_flag = {}", prefix, self.quiet_flag)
+    
     def read_state_from_disk(self):
         if os.path.exists(self.dot_git_path):
             self.branch = self._get_branch()
@@ -176,7 +192,7 @@ class GitRepository(Repository):
         except IOError, e:
             error("Cannot open '{}' for reading: {}", self.dot_git_path, e)
 
-    def _compute_separate_git_dir(self, parent):
+    def _compute_git_dir(self):
         # If .git exists as directory, either root or old style so use that always.
         # If .git exists as file, contents determines actual git directory location always.
         if os.path.isdir(self.dot_git_path):
@@ -186,10 +202,10 @@ class GitRepository(Repository):
         # Otherwise compute
         # - Either ".git" in work dir if no parent,
         # - or deps/name inside parent's git_dir
-        if parent is None:
+        if self.parent is None:
             return self.dot_git_path
         deps_path = os.path.join("deps", self.name)
-        return os.path.join(parent.git_dir, deps_path)
+        return os.path.join(self.parent.git_dir, deps_path)
 
     def _is_separate_git_dir(self):
         return self.git_dir != self.dot_git_path
@@ -199,6 +215,20 @@ class GitRepository(Repository):
         
     def _get_separate_git_dir_arg(self):
         return self.git_dir if self._is_separate_git_dir() else None
+
+    def _compute_git_common_dir(self):
+        # If the repository git_dir is WORK_DIR/.git/worktrees/WORKTREE_ID
+        m = re.match(r"(.*/\.git)/worktrees/[^/]*$", self.git_dir)
+        if m:
+            return m.group(1)
+        return self.git_dir
+    
+    def _compute_is_worktree(self):
+        if self.parent is None:
+            # Root is a worktree if git_dir and git_common_dir are different
+            return self.git_dir != self.git_common_dir
+        # Other repositories inherit from parent (git_dir/git_common_dir may not be set right yet)
+        return self.parent.is_worktree
     
     @staticmethod
     def is_present(work_dir):
@@ -217,15 +247,29 @@ class GitRepository(Repository):
     def post_edit(self, path):
         run("git", "add", path, cwd=self.work_dir)
 
-    def download(self):
-        validate_dir_notexists_or_empty(self.work_dir)
-        validate_dir_notexists(self.git_dir)
+    def _worktree_add(self):
+        # cd ../../dep/harth-kernel
+        # git worktree add ../../branches/master/dep/harth-kernel master
+        parent_dir = ""
+        status("Add worktree {}\n    from '{}'", self, parent_dir)
+        sys.exit(0)
+        
+    def _clone(self):
         status("Downloading {}\n    from '{}'", self, self.url)
         if self._is_separate_git_dir():
             make_dirs(os.path.dirname(self.git_dir))
         run("git", "clone",
             self.quiet_flag, self._get_separate_git_dir_flag(), self._get_separate_git_dir_arg(),
             "--no-checkout", self.url, self.work_dir)
+        
+    def download(self):
+        validate_dir_notexists_or_empty(self.work_dir)
+        validate_dir_notexists(self.git_dir)
+#        if self.is_worktree:
+#            self._worktree_add()
+#        else:
+#            self._clone()
+        self.clone()
 
     def _is_working_dir_empty(self):
         work_dir_contents = filter(lambda entry: not entry in [".", "..", ".git"], os.listdir(self.work_dir))
