@@ -142,23 +142,23 @@ class GitRepository(Repository):
     def __init__(self, work_dir, url):
         name = Repository.determine_name_from_url(url)
         Repository.__init__(self, work_dir, url, "git", name)
-        # TODO: Better way to find this?
-        self.git_dir = os.path.join(work_dir, ".git")
+        self.dot_git_path = os.path.join(work_dir, ".git")
+        self.git_dir = self.dot_git_path
         self.ignore_file = os.path.join(work_dir, ".gitignore")
         self.quiet_flag = "--quiet" if opts.args.quiet else None
 
     def __str__(self):
-        return "{} '{}'".format(self.__class__.__name__, self.git_dir)
+        return "{} '{}'".format(self.__class__.__name__, self.work_dir)
 
     def read_state_from_disk(self):
-        if os.path.exists(self.git_dir):
+        if os.path.exists(self.dot_git_path):
             self.branch = self._get_branch()
             self.commit = self._get_commit()
     
     @staticmethod
     def is_present(work_dir):
-        git_dir = os.path.join(work_dir, ".git")
-        return os.path.exists(git_dir)
+        dot_git_path = os.path.join(work_dir, ".git")
+        return os.path.exists(dot_git_path)
         
     def register(self, path):
         run("git", "add", path, cwd=self.work_dir)

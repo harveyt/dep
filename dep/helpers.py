@@ -41,6 +41,18 @@ def status_seperator():
         columns = 80
     status("##" + '=' * (columns - 3))
 
+def validate_path_notexists(path):
+    if os.path.exists(path):
+        error("Path '{}' already exists", path)
+
+def validate_path_exists(path):
+    if not os.path.exists(path):
+        error("Path '{}' does not exist", path)
+        
+def validate_file_notexists(file):
+    if os.path.exists(file):
+        error("File '{}' already exists", file)
+    
 def validate_file_exists(file):
     if not os.path.isfile(file):
         error("File '{}' does not exist", file)
