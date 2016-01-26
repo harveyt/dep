@@ -154,7 +154,7 @@ class GitRepository(Repository):
         self.dot_git_path = os.path.join(work_dir, ".git")
         self.git_dir = self._compute_git_dir()
         self.git_common_dir = self._compute_git_common_dir()
-        self.is_worktree = self._compute_is_worktree()        
+        self.worktree_path = self._compute_worktree_path()
         self.ignore_file = os.path.join(work_dir, ".gitignore")
         self.quiet_flag = "--quiet" if opts.args.quiet else None
 
@@ -166,7 +166,7 @@ class GitRepository(Repository):
         debug("{}dot_git_path = {}", prefix, self.dot_git_path)
         debug("{}git_dir = {}", prefix, self.git_dir)
         debug("{}git_common_dir = {}", prefix, self.git_common_dir)
-        debug("{}is_worktree = {}", prefix, self.is_worktree)
+        debug("{}worktree_path = {}", prefix, self.worktree_path)
         debug("{}ignore_file = {}", prefix, self.ignore_file)
         debug("{}quiet_flag = {}", prefix, self.quiet_flag)
     
@@ -204,7 +204,7 @@ class GitRepository(Repository):
             return self.dot_git_path
         deps_path = os.path.join("deps", self.name)
         git_dir = os.path.join(self.parent.git_common_dir, deps_path)
-        if self.parent.is_worktree:
+        if self.parent.worktree_path is not None:
             git_dir = os.path.join(git_dir, "worktrees/.UNKNOWN.")
         return git_dir
 
@@ -226,12 +226,15 @@ class GitRepository(Repository):
             return m.group(1)
         return self.git_dir
     
-    def _compute_is_worktree(self):
+    def _compute_worktree_path(self):
         if self.parent is None:
             # Root is a worktree if git_dir and git_common_dir are different
-            return self.git_dir != self.git_common_dir
+            if self.git_dir == self.git_common_dir:
+                return None
+            common_root = os.path.dirname(self.git_common_dir)
+            return os.path.relpath(self.work_dir, common_root)
         # Other repositories inherit from parent
-        return self.parent.is_worktree
+        return self.parent.worktree_path
     
     @staticmethod
     def is_present(work_dir):
@@ -253,10 +256,22 @@ class GitRepository(Repository):
     def _worktree_add(self):
         self.parent.debug_dump("parent: ")
         self.debug_dump("local: ")
-        path_to_root = os.path.relpath(self.parent.work_dir, self.work_dir)
-        print "path_to_root={}".format(path_to_root)
-        # git worktree add ../../branches/master/dep/harth-kernel master        
-        sys.exit(0)
+        dep_to_root_path = os.path.relpath(self.parent.work_dir, self.work_dir)
+        dep_path = os.path.relpath(self.work_dir, self.parent.work_dir)
+        worktree_path = os.path.join(dep_to_root_path, self.worktree_path, dep_path)
+        parent_common_root = os.path.dirname(self.parent.git_common_dir)
+        worktree_common_dir = os.path.join(parent_common_root, dep_path)
+        branch_name = self._branch_name_from_ref(self.branch)
+        debug("dep_to_root_path={}", dep_to_root_path)
+        debug("dep_path={}", dep_path)
+        debug("worktree_path={}", worktree_path)
+        debug("parent_common_root={}", parent_common_root)
+        debug("worktree_common_dir={}", worktree_common_dir)
+        debug("branch_name={}", branch_name)
+        run("git", "worktree", "add", worktree_path, branch_name, cwd=worktree_common_dir)
+        # NOTE: The git_dir will be incorrect (unknown) until after it is created, must update.
+        self.git_dir = self._compute_git_dir()
+        self.debug_dump("worktree: ")
         
     def _clone(self):
         status("Downloading {}\n    from '{}'", self, self.url)
@@ -269,7 +284,7 @@ class GitRepository(Repository):
     def download(self):
         validate_dir_notexists_or_empty(self.work_dir)
         validate_dir_notexists(self.git_dir)
-        if self.is_worktree:
+        if self.worktree_path is not None:
             self._worktree_add()
         else:
             self._clone()
