@@ -546,6 +546,9 @@ class GitRepository(Repository):
         work_dir = os.path.join(self.work_dir, worktree_path)
         status("Adding worktree {}\n    on branch '{}'", work_dir, branch_name)
         run("git", "worktree", "add", worktree_path, branch_name)
+        # Ensure worktree_root is ignored.
+        if not self.has_ignore(worktree_root):
+            self.add_ignore(worktree_root)
         # Create a .deproot so root finding does not go through "branch" to parent directories.
         deproot_path = os.path.join(self.work_dir, worktree_root, ".deproot")
         if not os.path.exists(deproot_path):
