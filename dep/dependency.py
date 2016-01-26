@@ -587,7 +587,12 @@ class Tree:
             kw['status_first'] = False
         if kw.get('status_exit'):
             sys.exit(0 if is_clean else 1)
-            
+
+    def worktree_dependency_tree(self, branch_name):
+        new_repo = self.root_node.repository.create_worktree(branch_name)
+        new_tree = Tree(new_repo.work_dir)
+        new_tree.refresh_dependency_tree()
+        
     #        
     # End General Tree API
     # --------------------------------------------------------------------------------

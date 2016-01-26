@@ -145,6 +145,9 @@ class FileRepository(Repository):
     def create_branch(self, name, startpoint):
         pass
 
+    def create_worktree(self, branch_name):
+        pass
+
 class GitRepository(Repository):
     def __init__(self, work_dir, url, name, parent):
         if parent is not None and not isinstance(parent, GitRepository):
@@ -268,6 +271,8 @@ class GitRepository(Repository):
         debug("parent_common_root={}", parent_common_root)
         debug("worktree_common_dir={}", worktree_common_dir)
         debug("branch_name={}", branch_name)
+        status("Adding worktree {}\n    on branch '{}'",
+               self.work_dir, branch_name)
         run("git", "worktree", "add", worktree_path, branch_name, cwd=worktree_common_dir)
         # NOTE: The git_dir will be incorrect (unknown) until after it is created, must update.
         self.git_dir = self._compute_git_dir()
@@ -535,3 +540,14 @@ class GitRepository(Repository):
         status("Branch {}\n    to branch '{}'{}", self, name, starting)
         run("git", "checkout", "-b", name, startpoint, cwd=self.work_dir)
         
+    def create_worktree(self, branch_name):
+        worktree_root = "branch"
+        worktree_path = os.path.join(worktree_root, branch_name)
+        work_dir = os.path.join(self.work_dir, worktree_path)
+        status("Adding worktree {}\n    on branch '{}'", work_dir, branch_name)
+        run("git", "worktree", "add", worktree_path, branch_name)
+        # Create a .deproot so root finding does not go through "branch" to parent directories.
+        deproot_path = os.path.join(self.work_dir, worktree_root, ".deproot")
+        if not os.path.exists(deproot_path):
+            open(deproot_path, 'a').close()
+        return Repository.create(work_dir)
