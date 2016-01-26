@@ -15,6 +15,10 @@ test:
 	$(MAKE) -C tests -w test
 
 release:
+	$(MAKE) release-create
+	$(MAKE) release-publish
+
+release-create:
 	@version=$(VERSION);					\
 	if [[ "$$(git status --porcelain)" != "" ]]; then	\
 		git status;					\
@@ -26,10 +30,12 @@ release:
 		echo "\nerror: Set VERSION variable!" >&2;	\
 		exit 1;						\
 	fi;							\
-	echo "Releasing version $$version";			\
-	git tag $$version;					\
-	make install;						\
-	git push;						\
+	echo "Releasing version $$version"
+	git tag $$version
+	make install
+
+release-publish:
+	git push
 	git push --tags
 
 
