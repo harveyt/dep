@@ -162,6 +162,17 @@ class Node:
     def find_child_node_by_name(self, name):
         return next((c for c in self.children if c.name == name), None)
 
+    def find_explicit_node_by_abs_path(self, abs_path):
+        if self.real_node.abs_path == abs_path:
+            return self
+        for child in self.children:
+            if child.explicit is False:
+                continue
+            found = child.find_explicit_node_by_abs_path(abs_path)
+            if found is not None:
+                return found
+        return None
+
     def _get_child_top_node_by_dep(self, dep):
         for top_node in self.tree.top_nodes:
             if top_node.name == dep.name:
@@ -461,7 +472,7 @@ class TreeList:
             if self.list_root:
                 items.append(self.tree.root_node)
         else:
-            local_node = self.tree._find_local_real_node()
+            local_node = self.tree._find_local_node()
             if self.list_children:
                 for child in local_node.children:
                     if child.explicit is True:
@@ -492,7 +503,7 @@ class Tree:
         self._validate_has_repository()
         self.read_dependency_tree()
         parent_node = self._get_root_or_local_node()
-        parent_node._add_disk(url)
+        parent_node.real_node._add_disk(url)
         self.refresh_dependency_tree()
     
     def branch_dependency_tree(self, branch_name, branch_startpoint, kw):
@@ -504,7 +515,7 @@ class Tree:
 
     def checkout_dependency_tree(self, branch_name, branch_startpoint, kw):
         node = self._get_root_or_local_node()
-        node.repository.checkout(branch_name, branch_startpoint)
+        node.real_node.repository.checkout(branch_name, branch_startpoint)
         self.refresh_dependency_tree()
 
     @staticmethod
@@ -533,7 +544,7 @@ class Tree:
         self.read_dependency_tree()
         node_list = TreeList(self, kw).build()
         for node in node_list:
-            node._foreach_run(cmd, kw)
+            node.real_node._foreach_run(cmd, kw)
 
     def init_dependency(self):
         self.root_node._init_disk()
@@ -616,7 +627,7 @@ class Tree:
     def _get_root_or_local_node(self):
         node = self.root_node
         if opts.args.local:
-            node = self._find_local_real_node()
+            node = self._find_local_node()
         return node
 
     def _build_dependency_tree(self):
@@ -666,12 +677,17 @@ class Tree:
         self.top_nodes.remove(top_node)
         self.top_nodes.insert(0, top_node)
 
-    def _find_local_real_node(self):
+    def _find_local_node(self):
         local_work_dir = find_local_work_dir()
         if local_work_dir is None:
             error("Cannot find local dependency working directory from '{}'", os.getcwd())
         local_real_path = os.path.realpath(local_work_dir)
-        return self._find_real_node_by_abs_path(local_real_path)
+        real_node = self._find_real_node_by_abs_path(local_real_path)
+        explicit_node = self._find_explicit_node_by_abs_path(real_node.abs_path)
+        return explicit_node
+
+    def _find_explicit_node_by_abs_path(self, abs_path):
+        return self.root_node.find_explicit_node_by_abs_path(abs_path)
 
     def _find_real_node_by_abs_path(self, abs_path):
         if self.root_node.abs_path == abs_path:
