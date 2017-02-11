@@ -65,8 +65,8 @@ test_exec $DEP status
 test_output_from_exec "\
 M  Branch           Commit                                   Push Pull Path
 -  ---------------  ---------------------------------------- ---- ---- --------------------------
-*  master           $B_old_commit    0    0 dep/B
-*  master           $A_old_commit    0    0 dep/A
+>  master           $B_old_commit    0    0 dep/B
+>  master           $A_old_commit    0    0 dep/A
 *  master           $ROOT_old_commit    0    0 .
 " $DEP_PATH status --commit
 

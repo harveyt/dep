@@ -240,6 +240,13 @@ test_git_work_dir_exists()
     local path="$1"
     local git_dir="$path/.git"
     test_dir_exists "$path"
+    if [[ -f "$git_dir" ]]; then
+	actual_git_dir=$(sed -n -e 's/^gitdir: \(.*\)$/\1/p' < $git_dir)
+	if [[ "$actual_git_dir" == "" ]]; then
+	    test_fail "git directory $git_dir is a file, but does not contain gitdir"
+	fi
+	git_dir="$actual_git_dir"
+    fi
     test_dir_exists "$git_dir"
 }   
 
@@ -248,7 +255,9 @@ test_git_work_dir_missing()
     local path="$1"
     local git_dir="$path/.git"
     test_dir_missing "$path"
-    test_dir_missing "$git_dir"
+    if [[ -e "$git_dir" ]]; then
+	test_fail "git directory $git_dir exists"
+    fi
 }
 
 test_git_commit_equals()
