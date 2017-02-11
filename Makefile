@@ -30,7 +30,7 @@ release-create:
 		echo "\nerror: Set VERSION variable!" >&2;	\
 		exit 1;						\
 	fi;							\
-	echo "Releasing version $$version"
+	echo "Releasing version $$version";			\
 	git tag $$version
 	make install
 
