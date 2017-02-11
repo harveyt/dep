@@ -593,7 +593,7 @@ class Tree:
         kw['status_first'] = True
         is_clean = True
         for node in node_list:
-            if not node._status_disk(kw):
+            if not node.real_node._status_disk(kw):
                 is_clean = False
             kw['status_first'] = False
         if kw.get('status_exit'):
