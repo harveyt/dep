@@ -233,7 +233,7 @@ class Node:
     def _init_disk(self):
         error("Cannot initialise '{}'", self)
 
-    def _add_disk(self, url):
+    def _add_disk(self, url, branch):
         pass
 
     def _run_command(self, cmd, kw=None):
@@ -325,11 +325,12 @@ class RealNode(Node):
         self.repository.commit = self.commit
         return self.repository.status(self.rel_path, kw)
 
-    def _add_child_node(self, name, rel_path, url, vcs):
+    def _add_child_node(self, name, rel_path, url, vcs, branch):
         new_dep = Dependency(name)
         new_dep.rel_path = rel_path
         new_dep.url = url
-        new_dep.vcs = vcs                        
+        new_dep.vcs = vcs
+        new_dep.branch = branch
         # Resolve the dependency to what should be a new top node
         new_node = self.resolve_child_by_dep(new_dep)
         new_top_node = new_node.real_node
@@ -350,7 +351,7 @@ class RealNode(Node):
         # Record new node state
         new_top_node._record_disk(new_parent_top_node)
         
-    def _add_disk(self, url):
+    def _add_disk(self, url, branch):
         # Determine default values from url
         self.tree._validate_url_notexists(url)
         name = scm.Repository.determine_name_from_url(url)
@@ -359,7 +360,7 @@ class RealNode(Node):
         rel_path = os.path.join(dep_dir, name)
         vcs = scm.Repository.determine_vcs_from_url(url)
         # Create new child top node
-        new_node = self._add_child_node(name, rel_path, url, vcs)
+        new_node = self._add_child_node(name, rel_path, url, vcs, branch)
         new_top_node = new_node.real_node
         # Refresh the new child node and then record its state
         self._add_child_node_refresh_and_record(new_node)
@@ -499,11 +500,11 @@ class Tree:
     # --------------------------------------------------------------------------------
     # Begin General Tree API
     #
-    def add_dependency(self, url):
+    def add_dependency(self, url, branch):
         self._validate_has_repository()
         self.read_dependency_tree()
         parent_node = self._get_root_or_local_node()
-        parent_node.real_node._add_disk(url)
+        parent_node.real_node._add_disk(url, branch)
         self.refresh_dependency_tree()
     
     def branch_dependency_tree(self, branch_name, branch_startpoint, kw):

@@ -9,7 +9,7 @@ from dep.helpers import *
 
 def command_add(args):
     tree = dependency.Tree()
-    tree.add_dependency(args.url)
+    tree.add_dependency(args.url, args.branch)
 
 parser_add = opts.subparsers.add_parser("add",
                                         help="Add a new dependency to root dependency",
@@ -17,4 +17,6 @@ parser_add = opts.subparsers.add_parser("add",
 add_local_arguments(parser_add)
 parser_add.add_argument("url",
                         help="The URL of the dependency's VCS repository")
+parser_add.add_argument("branch", nargs="?", default="master",
+                        help="Branch to add, optional. Default to master")
 parser_add.set_defaults(func=command_add)
